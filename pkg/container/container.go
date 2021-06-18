@@ -7,25 +7,30 @@ import (
 
 type Container interface {
 	RegisterModule(Module) error
+	RegisterWith(RegistrationFunc) error
+	Resolver
 }
 
 type defaultContainer struct {
-	registrar *Registrar
+	*Registrar
 }
 
 func New() Container {
 	return &defaultContainer{
-		registrar: &Registrar{},
+		&Registrar{},
 	}
 }
 
 func (c *defaultContainer) RegisterModule(m Module) error {
-	return m.Register(c.registrar)
+	return m.Register(c.Registrar)
 }
 
+func (c *defaultContainer) RegisterWith(fn RegistrationFunc) error {
+	return fn(c.Registrar)
+}
 
 func (c *defaultContainer) Resolve(p reflect.Type) (interface{}, error) {
-	for _, registration := range c.registrar.registeredServices {
+	for _, registration := range c.registeredServices {
 		if registration.Type() == p {
 			return registration.Resolve(c)
 		}
