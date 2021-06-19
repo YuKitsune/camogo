@@ -7,4 +7,4 @@ help: ## Shows this help
 
 .PHONY: test
 test: ## Runs all tests
-	go test ./...
+	go test ./... -v
