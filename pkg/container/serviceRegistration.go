@@ -68,7 +68,7 @@ func (r *FactoryRegistration) Resolve(c Resolver) (interface{}, error) {
 func resolveFunc(r Resolver, fnValue reflect.Value) ([]reflect.Value, error) {
 	var in []reflect.Value
 	for i := 0; i < fnValue.Type().NumIn(); i++ {
-		arg, err := r.Resolve(fnValue.Type().In(i))
+		arg, err := r.ResolveType(fnValue.Type().In(i))
 		if err != nil {
 			return []reflect.Value{}, err
 		}

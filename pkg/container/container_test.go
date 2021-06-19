@@ -7,245 +7,216 @@ import (
 	"testing"
 )
 
-type dummyInstance struct {
+type testInstance struct {
 	stringValue string
 }
-type testModuleWithInstance struct {
-	instanceToRegister interface{}
+
+type testModule struct {
+	instancesToRegister []interface{}
+	factoriesToRegister []struct {
+		factory interface{}
+		lifetime Lifetime
+	}
 }
-func (m *testModuleWithInstance) Register(r *Registrar) error {
-	r.RegisterInstance(m.instanceToRegister)
+
+func (m *testModule) Register(r *Registrar) error {
+	for _, i := range m.instancesToRegister {
+		r.RegisterInstance(i)
+	}
+
+	for _, f := range m.factoriesToRegister {
+		err := r.RegisterFactory(f.factory, f.lifetime)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-type testModuleWithFactory struct {
-	factoryToRegister interface{}
-	lifetime Lifetime
-}
-func (m *testModuleWithFactory) Register(r *Registrar) error {
-	return r.RegisterFactory(m.factoryToRegister, m.lifetime)
-}
-
-func TestCanRegisterServices(t *testing.T) {
+func TestResolveType(t *testing.T) {
 	t.Run(
-		"Using Module",
+		"From Module",
 		func (t *testing.T) {
-			t.Run(
-				"Instance",
-				func (t *testing.T) {
 
-					// Arrange
-					testValue := t.Name()
-					testInstance := &dummyInstance{testValue}
-					module := &testModuleWithInstance{testInstance}
-					c := New()
+			// Arrange
+			var err error
+			instance := &testInstance{t.Name()}
+			module := &testModule{instancesToRegister: []interface{} { instance }}
+			c := New()
+			err = c.RegisterModule(module)
+			assert.NoError(t, err)
 
-					// Act / Assert
-					err := c.RegisterModule(module)
-					assert.NoError(t, err)
-				})
-			t.Run(
-				"Factory",
-				func (t *testing.T) {
+			// Act
+			receivedInstance, err := c.ResolveType(reflect.TypeOf(instance))
+			assert.NoError(t, err)
 
-					// Arrange
-					testValue := t.Name()
-					testFactory := func () *dummyInstance {
-						return &dummyInstance{testValue}
-					}
-					module := &testModuleWithFactory{testFactory, TransientLifetime}
-					c := New()
-
-					// Act / Assert
-					err := c.RegisterModule(module)
-					assert.NoError(t, err)
-				})
-			t.Run(
-				"Factory with error",
-				func (t *testing.T) {
-
-					// Arrange
-					testValue := t.Name()
-					testFactory := func () (*dummyInstance, error) {
-						return &dummyInstance{testValue}, nil
-					}
-					module := &testModuleWithFactory{testFactory, TransientLifetime}
-					c := New()
-
-					// Act / Assert
-					err := c.RegisterModule(module)
-					assert.NoError(t, err)
-				})
+			// Assert
+			assert.NotNil(t, receivedInstance)
+			assert.Equal(t, instance.stringValue, receivedInstance.(*testInstance).stringValue)
 		})
 	t.Run(
-		"Using Func",
+		"From Func",
 		func (t *testing.T) {
-			t.Run(
-				"Instance",
-				func (t *testing.T) {
 
-					// Arrange
-					testValue := t.Name()
-					testInstance := &dummyInstance{testValue}
-					fn := func (r *Registrar) error {
-						r.RegisterInstance(testInstance)
-						return nil
-					}
-					c := New()
+			// Arrange
+			var err error
+			instance := &testInstance{t.Name()}
+			c := New()
+			err = c.Register(func(r *Registrar) error {
+				r.RegisterInstance(instance)
+				return nil
+			})
+			assert.NoError(t, err)
 
-					// Act / Assert
-					err := c.RegisterWith(fn)
-					assert.NoError(t, err)
-				})
-			t.Run(
-				"Factory",
-				func (t *testing.T) {
+			// Act
+			receivedInstance, err := c.ResolveType(reflect.TypeOf(instance))
+			assert.NoError(t, err)
 
-					// Arrange
-					testValue := t.Name()
-					testFactory := func () (*dummyInstance, error) {
-						return &dummyInstance{testValue}, nil
-					}
-					fn := func (r *Registrar) error {
-						return r.RegisterFactory(testFactory, TransientLifetime)
-					}
-					c := New()
-
-					// Act / Assert
-					err := c.RegisterWith(fn)
-					assert.NoError(t, err)
-				})
+			// Assert
+			assert.NotNil(t, receivedInstance)
+			assert.Equal(t, instance.stringValue, receivedInstance.(*testInstance).stringValue)
 		})
 }
 
-func TestCanResolveServices(t *testing.T) {
+func TestResolveInScope(t *testing.T) {
 	t.Run(
-		"Using Type",
+		"From Module",
 		func (t *testing.T) {
-			t.Run(
-				"Instance",
-				func (t *testing.T) {
 
-					// Arrange
-					testValue := t.Name()
-					testInstance := &dummyInstance{testValue}
-					module := &testModuleWithInstance{testInstance}
-					c := New()
-					err := c.RegisterModule(module)
-					assert.NoError(t, err)
+			// Arrange
+			var err error
+			instance := &testInstance{t.Name()}
+			module := &testModule{instancesToRegister: []interface{} { instance }}
+			c := New()
+			err = c.RegisterModule(module)
+			assert.NoError(t, err)
 
-					// Act
-					result, err := c.Resolve(reflect.TypeOf(testInstance))
+			// Act
+			err = c.ResolveInScope(func(receivedInstance *testInstance) {
 
-					// Assert
-					assert.NoError(t, err)
-					assert.NotNil(t, result)
-					assert.Equal(t, testValue, result.(*dummyInstance).stringValue)
-				})
-			t.Run(
-				"Factory",
-				func (t *testing.T) {
+				// Assert
+				assert.NotNil(t, receivedInstance)
+				assert.Equal(t, instance.stringValue, receivedInstance.stringValue)
+			})
 
-					// Arrange
-					testValue := t.Name()
-					testFactory := func () *dummyInstance {
-						return &dummyInstance{testValue}
-					}
-					module := &testModuleWithFactory{testFactory, TransientLifetime}
-					c := New()
-					err := c.RegisterModule(module)
-					assert.NoError(t, err)
-
-					// Act
-					result, err := c.Resolve(reflect.TypeOf(&dummyInstance{}))
-
-					// Assert
-					assert.NoError(t, err)
-					assert.NotNil(t, result)
-					assert.Equal(t, testValue, result.(*dummyInstance).stringValue)
-				})
+			assert.NoError(t, err)
 		})
 	t.Run(
-		"Using Func",
+		"From Func",
 		func (t *testing.T) {
-			t.Run(
-				"Instance",
-				func (t *testing.T) {
 
-					// Arrange
-					testValue := t.Name()
-					testInstance := &dummyInstance{testValue}
-					module := &testModuleWithInstance{testInstance}
-					c := New()
-					err := c.RegisterModule(module)
-					assert.NoError(t, err)
+			// Arrange
+			var err error
+			instance := &testInstance{t.Name()}
+			c := New()
+			err = c.Register(func(r *Registrar) error {
+				r.RegisterInstance(instance)
+				return nil
+			})
+			assert.NoError(t, err)
 
-					// Act / Assert
-					err = c.ResolveInScope(func (result *dummyInstance) {
-						assert.NotNil(t, result)
-						assert.Equal(t, testValue, result.stringValue)
-					})
+			// Act
+			err = c.ResolveInScope(func(receivedInstance *testInstance) {
 
-					assert.NoError(t, err)
-				})
-			t.Run(
-				"Factory",
-				func (t *testing.T) {
+				// Assert
+				assert.NotNil(t, receivedInstance)
+				assert.Equal(t, instance.stringValue, receivedInstance.stringValue)
+			})
 
-					// Arrange
-					testValue := t.Name()
-					testFactory := func () *dummyInstance {
-						return &dummyInstance{testValue}
-					}
-					module := &testModuleWithFactory{testFactory, TransientLifetime}
-					c := New()
-					err := c.RegisterModule(module)
-					assert.NoError(t, err)
-
-					// Act / Assert
-					err = c.ResolveInScope(func (result *dummyInstance) {
-						assert.NotNil(t, result)
-						assert.Equal(t, testValue, result.stringValue)
-					})
-
-					assert.NoError(t, err)
-				})
+			assert.NoError(t, err)
 		})
 }
 
-func TestFactoryReturnsError(t *testing.T) {
+func TestResolveInScopeReturnsError(t *testing.T) {
 	t.Run(
-		"Using Type",
+		"From provided func",
+		func (t *testing.T) {
+
+			// Arrange
+			var err error
+			instance := &testInstance{t.Name()}
+			module := &testModule{instancesToRegister: []interface{} { instance }}
+			c := New()
+			err = c.RegisterModule(module)
+			assert.NoError(t, err)
+
+			// Act
+			errorToReturn := fmt.Errorf(t.Name())
+			foundError := c.ResolveInScope(func(receivedInstance *testInstance) error {
+				return errorToReturn
+			})
+
+			assert.NotNil(t, foundError)
+			assert.Equal(t, errorToReturn, foundError)
+		})
+	t.Run(
+		"When unable to resolve",
 		func (t *testing.T) {
 
 			// Arrange
 			c := New()
 
 			// Act
-			result, err := c.Resolve(reflect.TypeOf(&dummyInstance{}))
+			foundError := c.ResolveInScope(func(receivedInstance *testInstance) error {
+				return nil
+			})
 
-			// Assert
-			assert.Nil(t, result)
-			assert.NotNil(t, err)
+			assert.NotNil(t, foundError)
 		})
-	t.Run(
-		"Using Func",
-		func (t *testing.T) {
+}
 
-			// Arrange
-			testError := fmt.Errorf(t.Name())
-			testFactory := func () (*dummyInstance, error) {
-				return nil, testError
-			}
-			module := &testModuleWithFactory{testFactory, TransientLifetime}
-			c := New()
-			err := c.RegisterModule(module)
-			assert.NoError(t, err)
+func TestFactoryIsValidated(t *testing.T) {
 
-			// Act / Assert
-			err = c.ResolveInScope(func (result *dummyInstance) { })
+	// Valid
+	t.Run("Returns one thing", func (t *testing.T) { testFactoryIsValidated(t, func() *testInstance { return nil }, true) })
+	t.Run("Returns something or error", func (t *testing.T) { testFactoryIsValidated(t, func() (*testInstance, error) { return nil, nil }, true) })
 
-			assert.NotNil(t, err)
-			assert.Equal(t, testError, err)
-		})
+	// Invalid
+	t.Run("Returns nothing", func (t *testing.T) { testFactoryIsValidated(t, func() { }, false) })
+	t.Run("Returns error", func (t *testing.T) { testFactoryIsValidated(t, func() error { return nil }, false) })
+	t.Run("Returns many things", func (t *testing.T) { testFactoryIsValidated(t, func() (*testInstance, *testInstance) { return nil, nil }, false) })
+}
+
+func testFactoryIsValidated(t *testing.T, fn interface{}, shouldPass bool) {
+
+	// Arrange
+	registrar := &Registrar{}
+
+	// Act
+	err := registrar.RegisterFactory(fn, SingletonLifetime)
+
+	// Assert
+	if shouldPass {
+		assert.NoError(t, err)
+	} else {
+		assert.NotNil(t, err)
+	}
+}
+
+func TestResolveInScopeFuncIsValidated(t *testing.T) {
+
+	// valid
+	t.Run("Returns nothing", func (t *testing.T) { testResolveInScopeFuncIsValidated(t, func() { }, true) })
+	t.Run("Returns error", func (t *testing.T) { testResolveInScopeFuncIsValidated(t, func() error { return nil }, true) })
+
+	// Invalid
+	t.Run("Returns something", func (t *testing.T) { testResolveInScopeFuncIsValidated(t, func() *testInstance { return nil }, false) })
+	t.Run("Returns many things", func (t *testing.T) { testResolveInScopeFuncIsValidated(t, func() (*testInstance, *testInstance) { return nil, nil }, false) })
+}
+
+func testResolveInScopeFuncIsValidated(t *testing.T, fn interface{}, shouldPass bool) {
+
+	// Arrange
+	c := New()
+
+	// Act
+	err := c.ResolveInScope(fn)
+
+	// Assert
+	if shouldPass {
+		assert.NoError(t, err)
+	} else {
+		assert.NotNil(t, err)
+	}
 }
