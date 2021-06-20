@@ -30,8 +30,7 @@ func (c *defaultContainer) Register(fn RegistrationFunc) error {
 }
 
 func (c *defaultContainer) RegisterInstance(v interface{}) error {
-	c.Registrar.RegisterInstance(v)
-	return nil
+	return c.Registrar.RegisterInstance(v)
 }
 
 func (c *defaultContainer) ResolveType(p reflect.Type) (interface{}, error) {

@@ -5,6 +5,14 @@ import (
 	"reflect"
 )
 
+type RegistrationExistsError struct {
+	TargetType reflect.Type
+}
+
+func (e *RegistrationExistsError) Error() string {
+	return fmt.Sprintf("a registration for %s already exists", e.TargetType.Name())
+}
+
 type Lifetime int
 const (
 	TransientLifetime Lifetime = iota
@@ -15,13 +23,28 @@ type Registrar struct {
 	registeredServices []ServiceRegistration
 }
 
-func (m *Registrar) RegisterInstance(instance interface{}) {
+func (m *Registrar) RegistrationExists(t reflect.Type) bool {
+	for _, service := range m.registeredServices {
+		if service.Type() == t {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (m *Registrar) RegisterInstance(instance interface{}) error {
 	registration := &InstanceRegistration {
 		targetType: reflect.TypeOf(instance),
 		instance: instance,
 	}
 
+	if m.RegistrationExists(registration.Type()) {
+		return &RegistrationExistsError{registration.Type()}
+	}
+
 	m.registeredServices = append(m.registeredServices, registration)
+	return nil
 }
 
 func (m *Registrar) RegisterFactory(factory interface{}, lifetime Lifetime) error {
@@ -38,6 +61,10 @@ func (m *Registrar) RegisterFactory(factory interface{}, lifetime Lifetime) erro
 		factoryType: fnType,
 		factory: fn,
 		lifetime: lifetime,
+	}
+
+	if m.RegistrationExists(registration.Type()) {
+		return &RegistrationExistsError{registration.Type()}
 	}
 
 	m.registeredServices = append(m.registeredServices, registration)

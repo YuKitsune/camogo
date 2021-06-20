@@ -4,11 +4,24 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"reflect"
+	"strconv"
 	"testing"
 )
 
+type testInterface interface {
+	GetValue() string
+}
+
 type testInstance struct {
 	stringValue string
+}
+
+type testInstance2 struct {
+	testInstance
+}
+
+func (v *testInstance) GetValue() string {
+	return v.stringValue
 }
 
 type testModule struct {
@@ -32,6 +45,43 @@ func (m *testModule) Register(r *Registrar) error {
 	}
 
 	return nil
+}
+
+func TestRegistrarDoesNotAllowDuplicates(t *testing.T) {
+	t.Run(
+		"Using Instance",
+		func (t *testing.T) {
+
+			// Arrange
+			instance1 := &testInstance{fmt.Sprintf("%s-1", t.Name())}
+			instance2 := &testInstance{fmt.Sprintf("%s-2", t.Name())}
+			r := &Registrar{}
+
+			// Act
+			err1 := r.RegisterInstance(instance1)
+			err2 := r.RegisterInstance(instance2)
+
+			// Assert
+			assert.NoError(t, err1)
+			assert.Error(t, err2)
+		})
+	t.Run(
+		"Using Factory",
+		func (t *testing.T) {
+
+			// Arrange
+			instance1 := &testInstance{fmt.Sprintf("%s-1", t.Name())}
+			instance2 := &testInstance{fmt.Sprintf("%s-2", t.Name())}
+			r := &Registrar{}
+
+			// Act
+			err1 := r.RegisterFactory(func () *testInstance { return instance1 }, SingletonLifetime)
+			err2 := r.RegisterFactory(func () *testInstance { return instance2 }, SingletonLifetime)
+
+			// Assert
+			assert.NoError(t, err1)
+			assert.Error(t, err2)
+		})
 }
 
 func TestResolveType(t *testing.T) {
@@ -128,6 +178,29 @@ func TestResolveInScope(t *testing.T) {
 		})
 }
 
+func TestResolveFromInterface(t *testing.T) {
+
+	// Arrange
+	instance := &testInstance{t.Name()}
+	c := New()
+	err := c.Register(func (r *Registrar) error {
+		return r.RegisterFactory(func () testInterface {
+			return instance
+		},
+		SingletonLifetime)
+	})
+	assert.NoError(t, err)
+
+	// Act
+	err = c.ResolveInScope(func (res testInterface) {
+
+		// Assert
+		assert.Equal(t, instance.GetValue(), res.GetValue())
+	})
+
+	assert.NoError(t, err)
+}
+
 func TestResolveInScopeReturnsError(t *testing.T) {
 	t.Run(
 		"From provided func",
@@ -218,5 +291,51 @@ func testResolveInScopeFuncIsValidated(t *testing.T, fn interface{}, shouldPass 
 		assert.NoError(t, err)
 	} else {
 		assert.NotNil(t, err)
+	}
+}
+
+func TestResolveSingletonResolvesSameInstance(t *testing.T) {
+
+	// Arrange
+	c := New()
+	err := c.Register(func (r *Registrar) error {
+		return r.RegisterFactory(func () *testInstance {
+			return &testInstance{t.Name()}
+		},
+		SingletonLifetime)
+	})
+	assert.NoError(t, err)
+
+	// Act / Assert
+	for i := 0; i < 10; i ++ {
+		err = c.ResolveInScope(func (res *testInstance)  {
+			assert.Equal(t, t.Name(), res.GetValue())
+		})
+		assert.NoError(t, err)
+	}
+}
+
+func TestResolveTransientResolvesNewInstance(t *testing.T) {
+
+	// Arrange
+	c := New()
+	counter := 0
+	err := c.Register(func (r *Registrar) error {
+		return r.RegisterFactory(func () *testInstance {
+			counter++
+			return &testInstance{strconv.Itoa(counter)}
+		},
+		TransientLifetime)
+	})
+	assert.NoError(t, err)
+
+	// Act / Assert
+	var lastValue string
+	for i := 0; i < 10; i ++ {
+		err = c.ResolveInScope(func (res *testInstance)  {
+			assert.NotEqual(t, lastValue, res.GetValue())
+			lastValue = res.GetValue()
+		})
+		assert.NoError(t, err)
 	}
 }
