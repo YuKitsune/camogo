@@ -13,6 +13,7 @@ func (e *RegistrationExistsError) Error() string {
 	return fmt.Sprintf("a registration for %s already exists", e.TargetType.Name())
 }
 
+// Lifetime defined the lifetime of a service in an IoC container
 type Lifetime int
 
 const (

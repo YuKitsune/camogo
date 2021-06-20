@@ -5,15 +5,14 @@ import (
 	"reflect"
 )
 
-type RegistrationFunc func(*Registrar) error
-
+// Container is an IoC container
 type Container interface {
 
 	// RegisterModule registers the given Module with the Container
 	RegisterModule(Module) error
 
 	// Register invokes the given RegistrationFunc to register a set of services
-	Register(RegistrationFunc) error
+	Register(func(*Registrar) error) error
 
 	Resolver
 }
@@ -33,7 +32,7 @@ func (c *defaultContainer) RegisterModule(m Module) error {
 	return m.Register(c.Registrar)
 }
 
-func (c *defaultContainer) Register(fn RegistrationFunc) error {
+func (c *defaultContainer) Register(fn func(*Registrar) error) error {
 	return fn(c.Registrar)
 }
 
