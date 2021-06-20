@@ -1,4 +1,4 @@
-module github.com/yukitsune/camogo/v1
+module github.com/yukitsune/camogo
 
 go 1.16
 
