@@ -5,9 +5,16 @@ import (
 	"reflect"
 )
 
+// Resolver provides mechanisms for resolving services
 type Resolver interface{
-	ResolveType(p reflect.Type) (interface{}, error)
-	ResolveInScope(interface{}) error
+
+	// Resolve will invoke the given function, resolving all of the arguments.
+	//	The returned error will either be from the Resolver failing to resolve an argument, or from the provided
+	//	function if any error is returned
+	Resolve(interface{}) error
+
+	// resolveType will resolve the service with the given reflect.Type
+	resolveType(p reflect.Type) (interface{}, error)
 }
 
 func validateScopeResults(fnValue reflect.Value) error {

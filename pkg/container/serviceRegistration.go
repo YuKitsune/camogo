@@ -5,25 +5,25 @@ import (
 	"reflect"
 )
 
-type ServiceRegistration interface {
+type serviceRegistration interface {
 	Type() reflect.Type
 	Resolve(Resolver) (interface{}, error)
 }
 
-type InstanceRegistration struct {
+type instanceRegistration struct {
 	targetType reflect.Type
 	instance interface{}
 }
 
-func (r *InstanceRegistration) Type() reflect.Type {
+func (r *instanceRegistration) Type() reflect.Type {
 	return r.targetType
 }
 
-func (r *InstanceRegistration) Resolve(_ Resolver) (interface{}, error) {
+func (r *instanceRegistration) Resolve(_ Resolver) (interface{}, error) {
 	return r.instance, nil
 }
 
-type FactoryRegistration struct {
+type factoryRegistration struct {
 	targetType reflect.Type
 	factoryType reflect.Type
 	factory reflect.Value
@@ -31,11 +31,11 @@ type FactoryRegistration struct {
 	instance interface{}
 }
 
-func (r *FactoryRegistration) Type() reflect.Type {
+func (r *factoryRegistration) Type() reflect.Type {
 	return r.targetType
 }
 
-func (r *FactoryRegistration) Resolve(c Resolver) (interface{}, error) {
+func (r *factoryRegistration) Resolve(c Resolver) (interface{}, error) {
 
 	// If this service is registered as a singleton, and we've already resolved an instance before, just return that
 	// instance
@@ -68,7 +68,7 @@ func (r *FactoryRegistration) Resolve(c Resolver) (interface{}, error) {
 func resolveFunc(r Resolver, fnValue reflect.Value) ([]reflect.Value, error) {
 	var in []reflect.Value
 	for i := 0; i < fnValue.Type().NumIn(); i++ {
-		arg, err := r.ResolveType(fnValue.Type().In(i))
+		arg, err := r.resolveType(fnValue.Type().In(i))
 		if err != nil {
 			return []reflect.Value{}, err
 		}

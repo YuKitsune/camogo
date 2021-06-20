@@ -3,7 +3,6 @@ package container
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"reflect"
 	"strconv"
 	"testing"
 )
@@ -14,10 +13,6 @@ type testInterface interface {
 
 type testInstance struct {
 	stringValue string
-}
-
-type testInstance2 struct {
-	testInstance
 }
 
 func (v *testInstance) GetValue() string {
@@ -34,7 +29,10 @@ type testModule struct {
 
 func (m *testModule) Register(r *Registrar) error {
 	for _, i := range m.instancesToRegister {
-		r.RegisterInstance(i)
+		err := r.RegisterInstance(i)
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, f := range m.factoriesToRegister {
@@ -97,13 +95,13 @@ func TestResolveType(t *testing.T) {
 			err = c.RegisterModule(module)
 			assert.NoError(t, err)
 
-			// Act
-			receivedInstance, err := c.ResolveType(reflect.TypeOf(instance))
-			assert.NoError(t, err)
+			// Act / Assert
+			err = c.Resolve(func (res *testInstance) {
+				assert.NotNil(t, res)
+				assert.Equal(t, instance.stringValue, res.stringValue)
+			})
 
-			// Assert
-			assert.NotNil(t, receivedInstance)
-			assert.Equal(t, instance.stringValue, receivedInstance.(*testInstance).stringValue)
+			assert.NoError(t, err)
 		})
 	t.Run(
 		"From Func",
@@ -114,22 +112,21 @@ func TestResolveType(t *testing.T) {
 			instance := &testInstance{t.Name()}
 			c := New()
 			err = c.Register(func(r *Registrar) error {
-				r.RegisterInstance(instance)
-				return nil
+				return r.RegisterInstance(instance)
 			})
 			assert.NoError(t, err)
 
-			// Act
-			receivedInstance, err := c.ResolveType(reflect.TypeOf(instance))
-			assert.NoError(t, err)
+			// Act / Assert
+			err = c.Resolve(func (res *testInstance) {
+				assert.NotNil(t, res)
+				assert.Equal(t, instance.stringValue, res.stringValue)
+			})
 
-			// Assert
-			assert.NotNil(t, receivedInstance)
-			assert.Equal(t, instance.stringValue, receivedInstance.(*testInstance).stringValue)
+			assert.NoError(t, err)
 		})
 }
 
-func TestResolveInScope(t *testing.T) {
+func TestResolve(t *testing.T) {
 	t.Run(
 		"From Module",
 		func (t *testing.T) {
@@ -143,7 +140,7 @@ func TestResolveInScope(t *testing.T) {
 			assert.NoError(t, err)
 
 			// Act
-			err = c.ResolveInScope(func(receivedInstance *testInstance) {
+			err = c.Resolve(func(receivedInstance *testInstance) {
 
 				// Assert
 				assert.NotNil(t, receivedInstance)
@@ -161,13 +158,12 @@ func TestResolveInScope(t *testing.T) {
 			instance := &testInstance{t.Name()}
 			c := New()
 			err = c.Register(func(r *Registrar) error {
-				r.RegisterInstance(instance)
-				return nil
+				return r.RegisterInstance(instance)
 			})
 			assert.NoError(t, err)
 
 			// Act
-			err = c.ResolveInScope(func(receivedInstance *testInstance) {
+			err = c.Resolve(func(receivedInstance *testInstance) {
 
 				// Assert
 				assert.NotNil(t, receivedInstance)
@@ -192,7 +188,7 @@ func TestResolveFromInterface(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Act
-	err = c.ResolveInScope(func (res testInterface) {
+	err = c.Resolve(func (res testInterface) {
 
 		// Assert
 		assert.Equal(t, instance.GetValue(), res.GetValue())
@@ -201,7 +197,7 @@ func TestResolveFromInterface(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestResolveInScopeReturnsError(t *testing.T) {
+func TestResolveReturnsError(t *testing.T) {
 	t.Run(
 		"From provided func",
 		func (t *testing.T) {
@@ -216,7 +212,7 @@ func TestResolveInScopeReturnsError(t *testing.T) {
 
 			// Act
 			errorToReturn := fmt.Errorf(t.Name())
-			foundError := c.ResolveInScope(func(receivedInstance *testInstance) error {
+			foundError := c.Resolve(func(receivedInstance *testInstance) error {
 				return errorToReturn
 			})
 
@@ -231,7 +227,7 @@ func TestResolveInScopeReturnsError(t *testing.T) {
 			c := New()
 
 			// Act
-			foundError := c.ResolveInScope(func(receivedInstance *testInstance) error {
+			foundError := c.Resolve(func(receivedInstance *testInstance) error {
 				return nil
 			})
 
@@ -267,24 +263,24 @@ func testFactoryIsValidated(t *testing.T, fn interface{}, shouldPass bool) {
 	}
 }
 
-func TestResolveInScopeFuncIsValidated(t *testing.T) {
+func TestResolveFuncIsValidated(t *testing.T) {
 
 	// valid
-	t.Run("Returns nothing", func (t *testing.T) { testResolveInScopeFuncIsValidated(t, func() { }, true) })
-	t.Run("Returns error", func (t *testing.T) { testResolveInScopeFuncIsValidated(t, func() error { return nil }, true) })
+	t.Run("Returns nothing", func (t *testing.T) { testResolveFuncIsValidated(t, func() { }, true) })
+	t.Run("Returns error", func (t *testing.T) { testResolveFuncIsValidated(t, func() error { return nil }, true) })
 
 	// Invalid
-	t.Run("Returns something", func (t *testing.T) { testResolveInScopeFuncIsValidated(t, func() *testInstance { return nil }, false) })
-	t.Run("Returns many things", func (t *testing.T) { testResolveInScopeFuncIsValidated(t, func() (*testInstance, *testInstance) { return nil, nil }, false) })
+	t.Run("Returns something", func (t *testing.T) { testResolveFuncIsValidated(t, func() *testInstance { return nil }, false) })
+	t.Run("Returns many things", func (t *testing.T) { testResolveFuncIsValidated(t, func() (*testInstance, *testInstance) { return nil, nil }, false) })
 }
 
-func testResolveInScopeFuncIsValidated(t *testing.T, fn interface{}, shouldPass bool) {
+func testResolveFuncIsValidated(t *testing.T, fn interface{}, shouldPass bool) {
 
 	// Arrange
 	c := New()
 
 	// Act
-	err := c.ResolveInScope(fn)
+	err := c.Resolve(fn)
 
 	// Assert
 	if shouldPass {
@@ -308,7 +304,7 @@ func TestResolveSingletonResolvesSameInstance(t *testing.T) {
 
 	// Act / Assert
 	for i := 0; i < 10; i ++ {
-		err = c.ResolveInScope(func (res *testInstance)  {
+		err = c.Resolve(func (res *testInstance)  {
 			assert.Equal(t, t.Name(), res.GetValue())
 		})
 		assert.NoError(t, err)
@@ -332,7 +328,7 @@ func TestResolveTransientResolvesNewInstance(t *testing.T) {
 	// Act / Assert
 	var lastValue string
 	for i := 0; i < 10; i ++ {
-		err = c.ResolveInScope(func (res *testInstance)  {
+		err = c.Resolve(func (res *testInstance)  {
 			assert.NotEqual(t, lastValue, res.GetValue())
 			lastValue = res.GetValue()
 		})

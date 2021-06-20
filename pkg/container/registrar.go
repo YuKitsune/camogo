@@ -15,14 +15,21 @@ func (e *RegistrationExistsError) Error() string {
 
 type Lifetime int
 const (
+
+	// TransientLifetime specifies that a factory should be invoked every time it is requested
 	TransientLifetime Lifetime = iota
+
+	// SingletonLifetime specifies that a factory should only be invoked once, and the result should be re-used for all
+	//	subsequent requests
 	SingletonLifetime
 )
 
+// Registrar is responsible for registering services and keeping track of them
 type Registrar struct {
-	registeredServices []ServiceRegistration
+	registeredServices []serviceRegistration
 }
 
+// RegistrationExists returns true if the given reflect.Type has been registered, false otherwise
 func (m *Registrar) RegistrationExists(t reflect.Type) bool {
 	for _, service := range m.registeredServices {
 		if service.Type() == t {
@@ -33,8 +40,9 @@ func (m *Registrar) RegistrationExists(t reflect.Type) bool {
 	return false
 }
 
+// RegisterInstance registers the given instance
 func (m *Registrar) RegisterInstance(instance interface{}) error {
-	registration := &InstanceRegistration {
+	registration := &instanceRegistration{
 		targetType: reflect.TypeOf(instance),
 		instance: instance,
 	}
@@ -47,6 +55,7 @@ func (m *Registrar) RegisterInstance(instance interface{}) error {
 	return nil
 }
 
+// RegisterFactory registers the given factory function with the given Lifetime
 func (m *Registrar) RegisterFactory(factory interface{}, lifetime Lifetime) error {
 
 	fnType := reflect.TypeOf(factory)
@@ -56,7 +65,7 @@ func (m *Registrar) RegisterFactory(factory interface{}, lifetime Lifetime) erro
 		return err
 	}
 
-	registration := &FactoryRegistration {
+	registration := &factoryRegistration{
 		targetType: reflect.TypeOf(factory).Out(0),
 		factoryType: fnType,
 		factory: fn,

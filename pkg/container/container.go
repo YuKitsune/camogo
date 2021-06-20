@@ -5,9 +5,16 @@ import (
 	"reflect"
 )
 
+type RegistrationFunc func (*Registrar) error
+
 type Container interface {
+
+	// RegisterModule registers the given Module with the Container
 	RegisterModule(Module) error
+
+	// Register invokes the given RegistrationFunc to register a set of services
 	Register(RegistrationFunc) error
+
 	Resolver
 }
 
@@ -15,6 +22,7 @@ type defaultContainer struct {
 	*Registrar
 }
 
+// New returns a new Container instance
 func New() Container {
 	return &defaultContainer{
 		&Registrar{},
@@ -29,21 +37,7 @@ func (c *defaultContainer) Register(fn RegistrationFunc) error {
 	return fn(c.Registrar)
 }
 
-func (c *defaultContainer) RegisterInstance(v interface{}) error {
-	return c.Registrar.RegisterInstance(v)
-}
-
-func (c *defaultContainer) ResolveType(p reflect.Type) (interface{}, error) {
-	for _, registration := range c.registeredServices {
-		if registration.Type() == p {
-			return registration.Resolve(c)
-		}
-	}
-
-	return nil, fmt.Errorf("no services of type %s were registered", p.Name())
-}
-
-func (c *defaultContainer) ResolveInScope(fn interface{}) error {
+func (c *defaultContainer) Resolve(fn interface{}) error {
 
 	if fn == nil {
 		return fmt.Errorf("func cannot be nil")
@@ -74,4 +68,14 @@ func (c *defaultContainer) ResolveInScope(fn interface{}) error {
 	}
 
 	return nil
+}
+
+func (c *defaultContainer) resolveType(p reflect.Type) (interface{}, error) {
+	for _, registration := range c.registeredServices {
+		if registration.Type() == p {
+			return registration.Resolve(c)
+		}
+	}
+
+	return nil, fmt.Errorf("no services of type %s were registered", p.Name())
 }
