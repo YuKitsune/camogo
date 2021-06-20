@@ -2,9 +2,11 @@
 	<img width="128" alt="Camogo" src="Gopher.png">
   <br />
   Camogo
-  <br />
-  A lightweight, reflection based IoC container for Go.
 </h1>
+
+<h3 align="center">
+  A simple, reflection based IoC container for Go.
+</h3>
 
 # Usage
 ## Registering services
