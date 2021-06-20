@@ -14,6 +14,7 @@ func (e *RegistrationExistsError) Error() string {
 }
 
 type Lifetime int
+
 const (
 
 	// TransientLifetime specifies that a factory should be invoked every time it is requested
@@ -44,7 +45,7 @@ func (m *Registrar) RegistrationExists(t reflect.Type) bool {
 func (m *Registrar) RegisterInstance(instance interface{}) error {
 	registration := &instanceRegistration{
 		targetType: reflect.TypeOf(instance),
-		instance: instance,
+		instance:   instance,
 	}
 
 	if m.RegistrationExists(registration.Type()) {
@@ -66,10 +67,10 @@ func (m *Registrar) RegisterFactory(factory interface{}, lifetime Lifetime) erro
 	}
 
 	registration := &factoryRegistration{
-		targetType: reflect.TypeOf(factory).Out(0),
+		targetType:  reflect.TypeOf(factory).Out(0),
 		factoryType: fnType,
-		factory: fn,
-		lifetime: lifetime,
+		factory:     fn,
+		lifetime:    lifetime,
 	}
 
 	if m.RegistrationExists(registration.Type()) {
@@ -97,7 +98,7 @@ func validateFactory(maybeFn reflect.Value) error {
 		return fmt.Errorf("the first value returned from a factory must not be an error")
 	}
 
-	if maybeFn.Type().NumOut() == 2 && maybeFn.Type().Out(1).Name() != "error"{
+	if maybeFn.Type().NumOut() == 2 && maybeFn.Type().Out(1).Name() != "error" {
 		return fmt.Errorf("if the factory returns two values, the second one must be an error")
 	}
 

@@ -5,7 +5,7 @@ import (
 	"reflect"
 )
 
-type RegistrationFunc func (*Registrar) error
+type RegistrationFunc func(*Registrar) error
 
 type Container interface {
 

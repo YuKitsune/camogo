@@ -12,7 +12,7 @@ type serviceRegistration interface {
 
 type instanceRegistration struct {
 	targetType reflect.Type
-	instance interface{}
+	instance   interface{}
 }
 
 func (r *instanceRegistration) Type() reflect.Type {
@@ -24,11 +24,11 @@ func (r *instanceRegistration) Resolve(_ Resolver) (interface{}, error) {
 }
 
 type factoryRegistration struct {
-	targetType reflect.Type
+	targetType  reflect.Type
 	factoryType reflect.Type
-	factory reflect.Value
-	lifetime Lifetime
-	instance interface{}
+	factory     reflect.Value
+	lifetime    Lifetime
+	instance    interface{}
 }
 
 func (r *factoryRegistration) Type() reflect.Type {

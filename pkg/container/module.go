@@ -1,5 +1,5 @@
 package container
 
-type Module interface{
+type Module interface {
 	Register(*Registrar) error
 }

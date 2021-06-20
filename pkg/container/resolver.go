@@ -6,7 +6,7 @@ import (
 )
 
 // Resolver provides mechanisms for resolving services
-type Resolver interface{
+type Resolver interface {
 
 	// Resolve will invoke the given function, resolving all of the arguments.
 	//	The returned error will either be from the Resolver failing to resolve an argument, or from the provided
