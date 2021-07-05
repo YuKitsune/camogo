@@ -235,6 +235,51 @@ func TestResolveReturnsError(t *testing.T) {
 		})
 }
 
+func TestResolveReturnsResult(t *testing.T) {
+	t.Run(
+		"With error",
+		func(t *testing.T) {
+
+			// Arrange
+			var err error
+			instance := &testInstance{t.Name()}
+			module := &testModule{instancesToRegister: []interface{}{instance}}
+			c := New()
+			err = c.RegisterModule(module)
+			assert.NoError(t, err)
+
+			// Act
+			errorToReturn := fmt.Errorf(t.Name())
+			testName, foundError := c.ResolveWithResult(func(receivedInstance *testInstance) (interface{}, error) {
+				return t.Name(), errorToReturn
+			})
+
+			assert.NotNil(t, foundError)
+			assert.Equal(t, t.Name(), testName)
+			assert.Equal(t, errorToReturn, foundError)
+		})
+	t.Run(
+		"Without error",
+		func(t *testing.T) {
+
+			// Arrange
+			var err error
+			instance := &testInstance{t.Name()}
+			module := &testModule{instancesToRegister: []interface{}{instance}}
+			c := New()
+			err = c.RegisterModule(module)
+			assert.NoError(t, err)
+
+			// Act
+			testName, foundError := c.ResolveWithResult(func(receivedInstance *testInstance) interface{} {
+				return t.Name()
+			})
+
+			assert.Nil(t, foundError)
+			assert.Equal(t, t.Name(), testName)
+		})
+}
+
 func TestFactoryIsValidated(t *testing.T) {
 
 	// Valid
@@ -285,6 +330,38 @@ func testResolveFuncIsValidated(t *testing.T, fn interface{}, shouldPass bool) {
 
 	// Act
 	err := c.Resolve(fn)
+
+	// Assert
+	if shouldPass {
+		assert.NoError(t, err)
+	} else {
+		assert.NotNil(t, err)
+	}
+}
+
+func TestResolveWithResultFuncIsValidated(t *testing.T) {
+
+	// valid
+	t.Run("Returns something", func(t *testing.T) { testResolveWithResultFuncIsValidated(t, func() *testInstance { return nil }, true) })
+	t.Run("Returns something with error", func(t *testing.T) { testResolveWithResultFuncIsValidated(t, func() (*testInstance, error) { return nil, nil }, true) })
+
+	// Invalid
+	t.Run("Returns nothing", func(t *testing.T) { testResolveWithResultFuncIsValidated(t, func() { }, false) })
+	t.Run("Returns only error", func(t *testing.T) {
+		testResolveWithResultFuncIsValidated(t, func() error { return nil }, false)
+	})
+	t.Run("Returns many things", func(t *testing.T) {
+		testResolveFuncIsValidated(t, func() (*testInstance, *testInstance) { return nil, nil }, false)
+	})
+}
+
+func testResolveWithResultFuncIsValidated(t *testing.T, fn interface{}, shouldPass bool) {
+
+	// Arrange
+	c := New()
+
+	// Act
+	_, err := c.ResolveWithResult(fn)
 
 	// Assert
 	if shouldPass {
