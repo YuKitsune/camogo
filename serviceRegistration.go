@@ -96,7 +96,7 @@ func getResult(out []reflect.Value) (interface{}, error) {
 	var err error
 	if len(out) == 2 {
 		if out[1].Type().Name() == "error" {
-			err = out[1].Interface().(error)
+			err = errorOrNil(out[0])
 		} else {
 			return nil, fmt.Errorf("if the factory returns two things, the second thing should be an error")
 		}

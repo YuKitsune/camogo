@@ -59,11 +59,7 @@ func (c *defaultContainer) Resolve(fn interface{}) error {
 	}
 
 	if len(out) == 1 && out[0].Type().Name() == "error" {
-		if out[0].IsNil() {
-			return nil
-		}
-
-		return out[0].Interface().(error)
+		return errorOrNil(out[0])
 	}
 
 	return nil
@@ -87,20 +83,10 @@ func (c *defaultContainer) ResolveWithResult(fn interface{}) (interface{}, error
 		return nil, err
 	}
 
-	var res interface{}
+	res := valueOrNil(out[0])
 	var returnedErr error
 	if len(out) == 2 {
-		if out[1].IsNil() {
-			returnedErr = nil
-		} else {
-			returnedErr = out[1].Interface().(error)
-		}
-	}
-
-	if out[0].IsNil() {
-		res = nil
-	} else {
-		res = out[0].Interface()
+		returnedErr = errorOrNil(out[1])
 	}
 
 	return res, returnedErr
