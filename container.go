@@ -69,6 +69,43 @@ func (c *defaultContainer) Resolve(fn interface{}) error {
 	return nil
 }
 
+func (c *defaultContainer) ResolveWithResult(fn interface{}) (interface{}, error) {
+
+	if fn == nil {
+		return nil, fmt.Errorf("func cannot be nil")
+	}
+
+	// Ensure the fn returns the appropriate thing(s)
+	fnValue := reflect.ValueOf(fn)
+	err := validateScopeResultsWithResponse(fnValue)
+	if err != nil {
+		return nil, err
+	}
+
+	out, err := resolveFunc(c, fnValue)
+	if err != nil {
+		return nil, err
+	}
+
+	var res interface{}
+	var returnedErr error
+	if len(out) == 2 {
+		if out[1].IsNil() {
+			returnedErr = nil
+		} else {
+			returnedErr = out[1].Interface().(error)
+		}
+	}
+
+	if out[0].IsNil() {
+		res = nil
+	} else {
+		res = out[0].Interface()
+	}
+
+	return res, returnedErr
+}
+
 func (c *defaultContainer) resolveType(p reflect.Type) (interface{}, error) {
 	for _, registration := range c.registeredServices {
 		if registration.Type() == p {
