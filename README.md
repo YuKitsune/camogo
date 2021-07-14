@@ -86,6 +86,13 @@ err := container.Resolve(func (cfg *ApiConfig) error {
 })
 ```
 
+The `Container.ResolveWithResult(interface{})` method can also be used if some kind of result needs to be returned.
+```go
+res, err := container.ResolveWithResult(func (cfg *ApiConfig) (*MyResult, error) {
+	...
+})
+```
+
 # Contributing
 
 Contributions are what make the open source community such an amazing place to be learn, inspire, and create. Any contributions you make are **greatly appreciated**.
