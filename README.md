@@ -102,3 +102,6 @@ Contributions are what make the open source community such an amazing place to b
 3. Commit your Changes
 4. Push to the Branch
 5. Open a Pull Request
+
+# Why "Camogo"?
+I can't remember why I called it that... But it's too late to change now.
