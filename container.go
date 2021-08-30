@@ -8,32 +8,23 @@ import (
 // Container is an IoC container
 type Container interface {
 
-	// RegisterModule registers the given Module with the Container
-	RegisterModule(Module) error
+	// Resolve will invoke the given function, resolving all of the arguments.
+	//	The returned error will either be from the Resolver failing to resolve an argument, or from the provided
+	//	function if any error is returned
+	Resolve(interface{}) error
 
-	// Register invokes the given RegistrationFunc to register a set of services
-	Register(func(*Registrar) error) error
+	// ResolveWithResult will invoke the given function, resolving all of the arguments.
+	//  The provided function must return something, which this function will return via it's first return value
+	//	The returned error will either be from the Resolver failing to resolve an argument, or from the provided
+	//	function if any error is returned
+	ResolveWithResult(interface{}) (interface{}, error)
 
-	Resolver
+	// resolveType will resolve the service with the given reflect.Type
+	resolveType(p reflect.Type) (interface{}, error)
 }
 
 type defaultContainer struct {
-	*Registrar
-}
-
-// New returns a new Container instance
-func New() Container {
-	return &defaultContainer{
-		&Registrar{},
-	}
-}
-
-func (c *defaultContainer) RegisterModule(m Module) error {
-	return m.Register(c.Registrar)
-}
-
-func (c *defaultContainer) Register(fn func(*Registrar) error) error {
-	return fn(c.Registrar)
+	services []service
 }
 
 func (c *defaultContainer) Resolve(fn interface{}) error {
@@ -44,7 +35,7 @@ func (c *defaultContainer) Resolve(fn interface{}) error {
 
 	// Ensure the fn returns the appropriate thing(s)
 	fnValue := reflect.ValueOf(fn)
-	err := validateScopeResults(fnValue)
+	err := validateFuncResults(fnValue)
 	if err != nil {
 		return err
 	}
@@ -73,7 +64,7 @@ func (c *defaultContainer) ResolveWithResult(fn interface{}) (interface{}, error
 
 	// Ensure the fn returns the appropriate thing(s)
 	fnValue := reflect.ValueOf(fn)
-	err := validateScopeResultsWithResponse(fnValue)
+	err := validateFuncResultsWithResult(fnValue)
 	if err != nil {
 		return nil, err
 	}
@@ -93,11 +84,32 @@ func (c *defaultContainer) ResolveWithResult(fn interface{}) (interface{}, error
 }
 
 func (c *defaultContainer) resolveType(p reflect.Type) (interface{}, error) {
-	for _, registration := range c.registeredServices {
+	for _, registration := range c.services {
 		if registration.Type() == p {
 			return registration.Resolve(c)
 		}
 	}
 
 	return nil, fmt.Errorf("no services of type %s were registered", p.Name())
+}
+
+func validateFuncResults(fnValue reflect.Value) error {
+	funcType := fnValue.Type()
+
+	if funcType.NumOut() == 0 || (funcType.NumOut() == 1 && funcType.Out(0).Name() == "error") {
+		return nil
+	}
+
+	return fmt.Errorf("func must return either nothing or an error")
+}
+
+func validateFuncResultsWithResult(fnValue reflect.Value) error {
+	funcType := fnValue.Type()
+
+	if (funcType.NumOut() == 1 && funcType.Out(0).Name() != "error") ||
+		(funcType.NumOut() == 2 && funcType.Out(0).Name() != "error" && funcType.Out(1).Name() == "error") {
+		return nil
+	}
+
+	return fmt.Errorf("func must return something")
 }

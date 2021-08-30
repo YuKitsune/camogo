@@ -7,8 +7,12 @@ help: ## Shows this help
 
 .PHONY: build
 build: ## Builds the package
-	go build -v ./...
+	go build ./...
 
 .PHONY: test
 test: ## Runs all tests
-	go test -v ./...
+	go test ./...
+
+.PHONY: benchmark
+benchmark: ## Runs all benchmarks
+	go test -bench=.

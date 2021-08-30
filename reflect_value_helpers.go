@@ -3,7 +3,7 @@ package camogo
 import "reflect"
 
 func valueOrNil(value reflect.Value) interface{} {
-	if value.IsNil() {
+	if value.Kind() == reflect.Ptr && value.IsNil() {
 		return nil
 	} else {
 		return value.Interface()
