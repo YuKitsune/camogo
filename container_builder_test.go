@@ -84,7 +84,7 @@ func TestBuilderDoesNotAllowDuplicates(t *testing.T) {
 
 func TestFactoryIsValidated(t *testing.T) {
 
-	testFactoryIsValidated := func (t *testing.T, fn interface{}, shouldPass bool) {
+	testFactoryIsValidated := func(t *testing.T, fn interface{}, shouldPass bool) {
 
 		// Arrange
 		cb := camogo.NewBuilder()

@@ -41,7 +41,6 @@ func (cb *containerBuilder) RegistrationExists(t reflect.Type) bool {
 	return false
 }
 
-
 func (cb *containerBuilder) RegisterInstance(instance interface{}) error {
 	registration := &serviceInstance{
 		targetType: reflect.TypeOf(instance),
@@ -55,7 +54,6 @@ func (cb *containerBuilder) RegisterInstance(instance interface{}) error {
 	cb.services = append(cb.services, registration)
 	return nil
 }
-
 
 func (cb *containerBuilder) RegisterFactory(factory interface{}, lifetime Lifetime) error {
 
