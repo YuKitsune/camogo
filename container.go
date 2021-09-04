@@ -22,6 +22,10 @@ type Container interface {
 	// resolveType will resolve the service with the given reflect.Type
 	resolveType(p reflect.Type) (interface{}, error)
 
+	// Todo: Clear up this doc
+
+	// NewChild will create a new child Container instance from the current Container instance.
+	//	Services registered with a ScopedLifetime will be treated as a ScopedLifetime per child Container.
 	NewChild() Container
 }
 

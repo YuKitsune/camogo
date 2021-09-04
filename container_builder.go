@@ -19,7 +19,7 @@ type ContainerBuilder interface {
 	// RegisterModule registers the given Module with the Container
 	RegisterModule(Module) error
 
-	// Build returns a new Container instance
+	// Build creates a new Container instance
 	Build() Container
 }
 
@@ -27,6 +27,7 @@ type containerBuilder struct {
 	services []service
 }
 
+// NewBuilder creates a new ContainerBuilder
 func NewBuilder() ContainerBuilder {
 	return &containerBuilder{}
 }
