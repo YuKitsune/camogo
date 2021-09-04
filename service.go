@@ -17,6 +17,8 @@ const (
 	//	subsequent requests
 	SingletonLifetime
 
+	// ScopedLifetime specifies that a factory should only be invoked once per child container, and the result should be
+	//	re-used for all subsequent requests to the same child
 	ScopedLifetime
 )
 
