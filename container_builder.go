@@ -85,6 +85,7 @@ func (cb *containerBuilder) RegisterModule(module Module) error {
 
 func (cb *containerBuilder) Build() Container {
 	return &defaultContainer{
+		nil,
 		cb.services,
 	}
 }

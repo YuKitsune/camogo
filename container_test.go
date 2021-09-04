@@ -342,6 +342,62 @@ func TestResolveTransientResolvesNewInstance(t *testing.T) {
 	}
 }
 
+func TestResolveScopedResolvedSameInstancePerScope(t *testing.T) {
+
+	// Arrange
+	var err error
+	cb := camogo.NewBuilder()
+	err = cb.RegisterFactory(func() *testInstance {
+		return &testInstance{strconv.Itoa(rand.Int())}
+	},
+		camogo.ScopedLifetime)
+	assert.NoError(t, err)
+
+	c0 := cb.Build()
+	c1 := c0.NewChild()
+	c2 := c0.NewChild()
+
+	// Act / Assert
+	var firstValue0 string
+	var firstValue1 string
+	var firstValue2 string
+	for i := 0; i < 10; i++ {
+		fn := func (ctr camogo.Container) (string, error){
+			res, err := ctr.ResolveWithResult(func(res *testInstance) string {
+				return res.GetValue()
+			})
+
+			resString := res.(string)
+			return resString, err
+		}
+
+		res0, err := fn(c0)
+		assert.NoError(t, err)
+		assert.NotNil(t, res0)
+
+		res1, err := fn(c1)
+		assert.NoError(t, err)
+		assert.NotNil(t, res1)
+
+		res2, err := fn(c2)
+		assert.NoError(t, err)
+		assert.NotNil(t, res2)
+
+		assert.NotEqual(t, res0, res1, res2)
+
+		if i == 0 {
+			firstValue0 = res0
+			firstValue1 = res1
+			firstValue2 = res2
+			continue
+		}
+
+		assert.Equal(t, firstValue0, res0)
+		assert.Equal(t, firstValue1, res1)
+		assert.Equal(t, firstValue2, res2)
+	}
+}
+
 func BenchmarkResolve(b *testing.B) {
 	instance := &testInstance{b.Name()}
 

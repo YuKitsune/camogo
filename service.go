@@ -16,6 +16,8 @@ const (
 	// SingletonLifetime specifies that a factory should only be invoked once, and the result should be re-used for all
 	//	subsequent requests
 	SingletonLifetime
+
+	ScopedLifetime
 )
 
 type service interface {
@@ -50,9 +52,11 @@ func (s *serviceFactory) Type() reflect.Type {
 
 func (s *serviceFactory) Resolve(c Container) (interface{}, error) {
 
+	isSingleton := s.lifetime == SingletonLifetime || s.lifetime == ScopedLifetime
+
 	// If this service is registered as a singleton, and we've already resolved an instance before, just return that
 	// instance
-	if s.lifetime == SingletonLifetime && s.instance != nil {
+	if isSingleton && s.instance != nil {
 		return s.instance, nil
 	}
 
@@ -69,12 +73,22 @@ func (s *serviceFactory) Resolve(c Container) (interface{}, error) {
 	}
 
 	// If this service is registered as a singleton, then store this new instance for later
-	if s.lifetime == SingletonLifetime {
+	if isSingleton {
 		s.instance = instance
 		return s.instance, nil
 	}
 
 	return instance, nil
+}
+
+func (s *serviceFactory) copy() *serviceFactory {
+	return &serviceFactory{
+		targetType: s.targetType,
+		factoryType: s.factoryType,
+		factory: s.factory,
+		lifetime: s.lifetime,
+		instance: s.instance,
+	}
 }
 
 // resolveFunc executes the given fnValue as a func and uses the given Resolver to resolve any arguments.

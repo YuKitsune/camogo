@@ -21,9 +21,12 @@ type Container interface {
 
 	// resolveType will resolve the service with the given reflect.Type
 	resolveType(p reflect.Type) (interface{}, error)
+
+	NewChild() Container
 }
 
 type defaultContainer struct {
+	parent Container
 	services []service
 }
 
@@ -84,13 +87,38 @@ func (c *defaultContainer) ResolveWithResult(fn interface{}) (interface{}, error
 }
 
 func (c *defaultContainer) resolveType(p reflect.Type) (interface{}, error) {
-	for _, registration := range c.services {
-		if registration.Type() == p {
-			return registration.Resolve(c)
+	for _, svc := range c.services {
+		if svc.Type() == p {
+			return svc.Resolve(c)
 		}
 	}
 
+	if c.parent != nil {
+		return c.parent.resolveType(p)
+	}
+
 	return nil, fmt.Errorf("no services of type %s were registered", p.Name())
+}
+
+func (c *defaultContainer) NewChild() Container {
+	var svcs []service
+
+	for _, svc := range c.services {
+		switch v := svc.(type) {
+		case *serviceFactory:
+			if v.lifetime == ScopedLifetime {
+				sf := v.copy()
+				sf.lifetime = SingletonLifetime
+				sf.instance = nil
+				svcs = append(svcs, sf)
+			}
+		}
+	}
+
+	return &defaultContainer{
+		parent: c,
+		services: svcs,
+	}
 }
 
 func validateFuncResults(fnValue reflect.Value) error {
