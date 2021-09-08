@@ -398,6 +398,85 @@ func TestResolveScopedResolvedSameInstancePerScope(t *testing.T) {
 	}
 }
 
+func TestResolveSingletonResolvesSameInstanceFromParent(t *testing.T) {
+
+	const nestLevel int = 10
+
+	// Arrange
+	var err error
+	cb := camogo.NewBuilder()
+	err = cb.RegisterFactory(func() *testInstance {
+		return &testInstance{strconv.Itoa(rand.Int())}
+	},
+		camogo.SingletonLifetime)
+	assert.NoError(t, err)
+
+	cr := cb.Build()
+	c := cr.NewChild()
+
+	// Act / Assert
+	for n := 0; n < nestLevel; n++ {
+		c = c.NewChild()
+
+		var firstValue string
+		for i := 0; i < 10; i++ {
+			res, err := c.ResolveWithResult(func(res *testInstance) string {
+				return res.GetValue()
+			})
+
+			assert.NotNil(t, res)
+			assert.NoError(t, err)
+
+			resString := res.(string)
+			if i == 0 {
+				firstValue = resString
+				continue
+			}
+
+			assert.Equal(t, firstValue, resString)
+		}
+	}
+}
+
+func TestResolveTransientResolvesNewInstanceFromParent(t *testing.T) {
+
+	const nestLevel int = 10
+
+
+	// Arrange
+	cb := camogo.NewBuilder()
+	counter := 0
+	err := cb.RegisterFactory(func() *testInstance {
+		counter++
+		return &testInstance{strconv.Itoa(counter)}
+	},
+		camogo.TransientLifetime)
+	assert.NoError(t, err)
+
+	cr := cb.Build()
+	c := cr.NewChild()
+
+	// Act / Assert
+	for n := 0; n < nestLevel; n++ {
+		c = c.NewChild()
+
+		var lastValue string
+		for i := 0; i < 10; i++ {
+			res, err := c.ResolveWithResult(func(res *testInstance) string {
+				return res.GetValue()
+			})
+
+			assert.NotNil(t, res)
+			assert.NoError(t, err)
+
+			resString := res.(string)
+			assert.NotEqual(t, lastValue, resString)
+
+			lastValue = resString
+		}
+	}
+}
+
 func BenchmarkResolve(b *testing.B) {
 	instance := &testInstance{b.Name()}
 
