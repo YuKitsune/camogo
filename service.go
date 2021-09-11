@@ -85,11 +85,11 @@ func (s *serviceFactory) Resolve(c Container) (interface{}, error) {
 
 func (s *serviceFactory) copy() *serviceFactory {
 	return &serviceFactory{
-		targetType: s.targetType,
+		targetType:  s.targetType,
 		factoryType: s.factoryType,
-		factory: s.factory,
-		lifetime: s.lifetime,
-		instance: s.instance,
+		factory:     s.factory,
+		lifetime:    s.lifetime,
+		instance:    s.instance,
 	}
 }
 

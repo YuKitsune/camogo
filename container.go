@@ -30,7 +30,7 @@ type Container interface {
 }
 
 type defaultContainer struct {
-	parent Container
+	parent   Container
 	services []service
 }
 
@@ -120,7 +120,7 @@ func (c *defaultContainer) NewChild() Container {
 	}
 
 	return &defaultContainer{
-		parent: c,
+		parent:   c,
 		services: svcs,
 	}
 }

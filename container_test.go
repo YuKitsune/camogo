@@ -362,7 +362,7 @@ func TestResolveScopedResolvedSameInstancePerScope(t *testing.T) {
 	var firstValue1 string
 	var firstValue2 string
 	for i := 0; i < 10; i++ {
-		fn := func (ctr camogo.Container) (string, error){
+		fn := func(ctr camogo.Container) (string, error) {
 			res, err := ctr.ResolveWithResult(func(res *testInstance) string {
 				return res.GetValue()
 			})
@@ -415,10 +415,10 @@ func TestResolveSingletonResolvesSameInstanceFromParent(t *testing.T) {
 	c := cr.NewChild()
 
 	// Act / Assert
+	var firstValue string
 	for n := 0; n < nestLevel; n++ {
 		c = c.NewChild()
 
-		var firstValue string
 		for i := 0; i < 10; i++ {
 			res, err := c.ResolveWithResult(func(res *testInstance) string {
 				return res.GetValue()
@@ -428,7 +428,7 @@ func TestResolveSingletonResolvesSameInstanceFromParent(t *testing.T) {
 			assert.NoError(t, err)
 
 			resString := res.(string)
-			if i == 0 {
+			if n == 0 && i == 0 {
 				firstValue = resString
 				continue
 			}
@@ -441,7 +441,6 @@ func TestResolveSingletonResolvesSameInstanceFromParent(t *testing.T) {
 func TestResolveTransientResolvesNewInstanceFromParent(t *testing.T) {
 
 	const nestLevel int = 10
-
 
 	// Arrange
 	cb := camogo.NewBuilder()
