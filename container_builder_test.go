@@ -74,7 +74,7 @@ func TestBuilderDoesNotAllowDuplicates(t *testing.T) {
 
 			// Act
 			err1 := cb.RegisterFactory(func() *testInstance { return instance1 }, camogo.SingletonLifetime)
-			err2 := cb.RegisterFactory(func() (*testInstance, error) { return instance2, nil }, camogo.SingletonLifetime)
+			err2 := cb.RegisterFactory(func() (*testInstance, error) { return instance2, nil }, camogo.TransientLifetime)
 
 			// Assert
 			assert.NoError(t, err1)
