@@ -31,6 +31,11 @@ builder.RegisterFactory(database.New, TransientLifetime)
 //  the resolved instance will then be re-used for every subsequent request
 builder.RegisterFactory(logging.NewLogger, SingletonLifetime)
 
+// RegisterFactory with a ScopedLifetime is similar to the SingletonLifetime,
+//  but the func will be invoked once per container
+//  See the Scoped Services section for more ingo
+builder.RegisterFactory(logging.NewLogger, SingletonLifetime)
+
 container := builder.Build()
 ```
 
@@ -90,6 +95,30 @@ The `Container.ResolveWithResult(interface{})` method can also be used if some k
 ```go
 res, err := container.ResolveWithResult(func (cfg *ApiConfig) (*MyResult, error) {
 	...
+})
+```
+
+## Scoped services
+Services registered with the ScopedLifetime can have their instances shared between multiple different resolver functions.
+Scoped services are similar to Singleton services, but new instances are created per container.
+```go
+rootContainer := builder.Build()
+childContainer1 := rootContainer.NewChild()
+childContainer2 := rootContainer.NewChild()
+
+// If Transaction was requested with a ScopedLifetime, then both of these calls
+//  will resolve the same instance.
+childContainer1.Resolve(func (txn *Transaction) error {
+
+})
+childContainer1.Resolve(func (txn *Transaction) error {
+
+})
+
+// Because this call is to a different container, a different Transaction instance
+//  will be resolved
+childContainer2.Resolve(func (txn *Transaction) error {
+
 })
 ```
 

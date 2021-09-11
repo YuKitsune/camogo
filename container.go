@@ -19,14 +19,12 @@ type Container interface {
 	//	function if any error is returned
 	ResolveWithResult(interface{}) (interface{}, error)
 
+	// NewChild will create a new child Container instance from the current Container instance.
+	//	Services registered with a ScopedLifetime will be treated as a SingletonLifetime per child Container.
+	NewChild() Container
+
 	// resolveType will resolve the service with the given reflect.Type
 	resolveType(p reflect.Type) (interface{}, error)
-
-	// Todo: Clear up this doc
-
-	// NewChild will create a new child Container instance from the current Container instance.
-	//	Services registered with a ScopedLifetime will be treated as a ScopedLifetime per child Container.
-	NewChild() Container
 }
 
 type defaultContainer struct {
@@ -110,6 +108,8 @@ func (c *defaultContainer) NewChild() Container {
 	for _, svc := range c.services {
 		switch v := svc.(type) {
 		case *serviceFactory:
+
+			// Kinda hacky
 			if v.lifetime == ScopedLifetime {
 				sf := v.copy()
 				sf.lifetime = SingletonLifetime
