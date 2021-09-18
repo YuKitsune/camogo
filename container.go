@@ -23,8 +23,8 @@ type Container interface {
 	//	Services registered with a ScopedLifetime will be treated as a SingletonLifetime per child Container.
 	NewChild() Container
 
-	// resolveType will resolve the service with the given reflect.Type
-	resolveType(p reflect.Type) (interface{}, error)
+	// ResolveType will resolve the service with the given reflect.Type
+	ResolveType(p reflect.Type) (interface{}, error)
 }
 
 type defaultContainer struct {
@@ -88,7 +88,7 @@ func (c *defaultContainer) ResolveWithResult(fn interface{}) (interface{}, error
 	return res, returnedErr
 }
 
-func (c *defaultContainer) resolveType(p reflect.Type) (interface{}, error) {
+func (c *defaultContainer) ResolveType(p reflect.Type) (interface{}, error) {
 	for _, svc := range c.services {
 		if svc.Type() == p {
 			return svc.Resolve(c)
@@ -96,7 +96,7 @@ func (c *defaultContainer) resolveType(p reflect.Type) (interface{}, error) {
 	}
 
 	if c.parent != nil {
-		return c.parent.resolveType(p)
+		return c.parent.ResolveType(p)
 	}
 
 	return nil, fmt.Errorf("no services of type %s were registered", p.Name())

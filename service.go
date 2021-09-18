@@ -97,7 +97,7 @@ func (s *serviceFactory) copy() *serviceFactory {
 func resolveFunc(c Container, fnValue reflect.Value) ([]reflect.Value, error) {
 	var in []reflect.Value
 	for i := 0; i < fnValue.Type().NumIn(); i++ {
-		arg, err := c.resolveType(fnValue.Type().In(i))
+		arg, err := c.ResolveType(fnValue.Type().In(i))
 		if err != nil {
 			return []reflect.Value{}, err
 		}
