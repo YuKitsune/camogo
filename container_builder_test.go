@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/yukitsune/camogo"
+	"reflect"
 	"testing"
 )
 
@@ -17,6 +18,10 @@ type testInstance struct {
 
 func (v *testInstance) GetValue() string {
 	return v.stringValue
+}
+
+func testInstanceName() string {
+	return reflect.TypeOf(&testInstance{}).Name()
 }
 
 type testModule struct {

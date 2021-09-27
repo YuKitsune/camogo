@@ -5,6 +5,8 @@ import (
 	"reflect"
 )
 
+type ServicePredicate = func (p reflect.Type) bool
+
 // Container is an IoC container
 type Container interface {
 
@@ -25,6 +27,12 @@ type Container interface {
 
 	// ResolveType will resolve the service with the given reflect.Type
 	ResolveType(p reflect.Type) (interface{}, error)
+
+	// ResolveMatchingType will resolve the service that matches the given ServicePredicate
+	ResolveMatchingType(ServicePredicate) (interface{}, error)
+
+	// ResolveMatchingTypes will resolve the services that match the given ServicePredicate
+	ResolveMatchingTypes(ServicePredicate) ([]interface{}, error)
 }
 
 type defaultContainer struct {
@@ -100,6 +108,56 @@ func (c *defaultContainer) ResolveType(p reflect.Type) (interface{}, error) {
 	}
 
 	return nil, fmt.Errorf("no services of type %s were registered", p.Name())
+}
+
+func (c *defaultContainer) ResolveMatchingType(predicate ServicePredicate) (interface{}, error) {
+	for _, s := range c.services {
+		if predicate(s.Type()) {
+			return s.Resolve(c)
+		}
+	}
+
+	if c.parent != nil {
+		return c.parent.ResolveMatchingType(predicate)
+	}
+
+	return nil, fmt.Errorf("no services matching the given predicate were registered")
+}
+
+func (c *defaultContainer) ResolveMatchingTypes(predicate ServicePredicate) ([]interface{}, error) {
+
+	var foundServices []interface{}
+	var errs errors
+	for _, s := range c.services {
+		if predicate(s.Type()) {
+			resolvedService, err := s.Resolve(c)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+
+			foundServices = append(foundServices, resolvedService)
+		}
+	}
+
+	if c.parent != nil {
+		foundServicesFromParent, errFromParent := c.parent.ResolveMatchingTypes(predicate)
+		if errsFromParent, ok := errFromParent.(errors); ok && len(errsFromParent) > 0{
+			errs = append(errs, errsFromParent)
+		} else {
+			foundServices = append(foundServices, foundServicesFromParent)
+		}
+	}
+
+	if len(errs) > 0 {
+		return nil, errs
+	}
+
+	if len(foundServices) > 0 {
+		return foundServices, nil
+	}
+
+	return nil, fmt.Errorf("no services matching the given predicate were registered")
 }
 
 func (c *defaultContainer) NewChild() Container {
