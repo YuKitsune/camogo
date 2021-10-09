@@ -626,6 +626,21 @@ func TestResolveMatchingTransientResolvesNewInstanceFromParent(t *testing.T) {
 	}
 }
 
+func TestResolveTypeCanReturnContainer(t *testing.T) {
+
+	// Arrange
+	cb := camogo.NewBuilder()
+	c := cb.Build()
+
+	err := c.Resolve(func (ctr camogo.Container) error {
+		assert.NotNil(t, ctr)
+		assert.Same(t, c, ctr)
+		return nil
+	})
+
+	assert.NoError(t, err)
+}
+
 func BenchmarkResolve(b *testing.B) {
 	instance := &testInstance{b.Name()}
 

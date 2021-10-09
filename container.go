@@ -38,6 +38,15 @@ type Container interface {
 type defaultContainer struct {
 	parent   Container
 	services []service
+	containerType reflect.Type
+}
+
+func (c *defaultContainer) ContainerType() reflect.Type {
+	if c.containerType == nil {
+		c.containerType = reflect.TypeOf(c)
+	}
+
+	return c.containerType
 }
 
 func (c *defaultContainer) Resolve(fn interface{}) error {
@@ -97,6 +106,11 @@ func (c *defaultContainer) ResolveWithResult(fn interface{}) (interface{}, error
 }
 
 func (c *defaultContainer) ResolveType(p reflect.Type) (interface{}, error) {
+
+	if c.ContainerType().AssignableTo(p) {
+		return c, nil
+	}
+
 	for _, svc := range c.services {
 		if svc.Type() == p {
 			return svc.Resolve(c)
