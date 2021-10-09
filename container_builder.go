@@ -88,6 +88,7 @@ func (cb *containerBuilder) Build() Container {
 	return &defaultContainer{
 		nil,
 		cb.services,
+		nil,
 	}
 }
 
