@@ -1,9 +1,8 @@
-package camogo_test
+package camogo
 
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"github.com/yukitsune/camogo"
 	"math/rand"
 	"reflect"
 	"strconv"
@@ -20,7 +19,7 @@ func TestResolve(t *testing.T) {
 			instance := &testInstance{t.Name()}
 			module := &testModule{instancesToRegister: []interface{}{instance}}
 
-			cb := camogo.NewBuilder()
+			cb := NewBuilder()
 			err = cb.RegisterModule(module)
 			assert.NoError(t, err)
 
@@ -44,7 +43,7 @@ func TestResolve(t *testing.T) {
 			var err error
 			instance := &testInstance{t.Name()}
 
-			cb := camogo.NewBuilder()
+			cb := NewBuilder()
 			err = cb.RegisterInstance(instance)
 			assert.NoError(t, err)
 
@@ -68,10 +67,10 @@ func TestResolve(t *testing.T) {
 			var err error
 			instance := &testInstance{t.Name()}
 
-			cb := camogo.NewBuilder()
+			cb := NewBuilder()
 			err = cb.RegisterFactory(func() *testInstance {
 				return instance
-			}, camogo.TransientLifetime)
+			}, TransientLifetime)
 			assert.NoError(t, err)
 
 			c := cb.Build()
@@ -94,10 +93,10 @@ func TestResolve(t *testing.T) {
 			var err error
 			instance := &testInstance{t.Name()}
 
-			cb := camogo.NewBuilder()
+			cb := NewBuilder()
 			err = cb.RegisterFactory(func() (*testInstance, error) {
 				return instance, nil
-			}, camogo.TransientLifetime)
+			}, TransientLifetime)
 			assert.NoError(t, err)
 
 			c := cb.Build()
@@ -123,7 +122,7 @@ func TestResolveReturnsError(t *testing.T) {
 			var err error
 			instance := &testInstance{t.Name()}
 
-			cb := camogo.NewBuilder()
+			cb := NewBuilder()
 			err = cb.RegisterInstance(instance)
 			assert.NoError(t, err)
 
@@ -143,7 +142,7 @@ func TestResolveReturnsError(t *testing.T) {
 		func(t *testing.T) {
 
 			// Arrange
-			cb := camogo.NewBuilder()
+			cb := NewBuilder()
 			c := cb.Build()
 
 			// Act
@@ -164,7 +163,7 @@ func TestResolveReturnsResult(t *testing.T) {
 			var err error
 			instance := &testInstance{t.Name()}
 
-			cb := camogo.NewBuilder()
+			cb := NewBuilder()
 			err = cb.RegisterInstance(instance)
 			assert.NoError(t, err)
 
@@ -188,7 +187,7 @@ func TestResolveReturnsResult(t *testing.T) {
 			var err error
 			instance := &testInstance{t.Name()}
 
-			cb := camogo.NewBuilder()
+			cb := NewBuilder()
 			err = cb.RegisterInstance(instance)
 			assert.NoError(t, err)
 
@@ -209,7 +208,7 @@ func TestResolveFuncIsValidated(t *testing.T) {
 	testResolveFuncIsValidated := func(t *testing.T, fn interface{}, shouldPass bool) {
 
 		// Arrange
-		cb := camogo.NewBuilder()
+		cb := NewBuilder()
 		c := cb.Build()
 
 		// Act
@@ -245,7 +244,7 @@ func TestResolveWithResultFuncIsValidated(t *testing.T) {
 	testResolveWithResultFuncIsValidated := func(t *testing.T, fn interface{}, shouldPass bool) {
 
 		// Arrange
-		cb := camogo.NewBuilder()
+		cb := NewBuilder()
 		c := cb.Build()
 
 		// Act
@@ -283,11 +282,11 @@ func TestResolveSingletonResolvesSameInstance(t *testing.T) {
 
 	// Arrange
 	var err error
-	cb := camogo.NewBuilder()
+	cb := NewBuilder()
 	err = cb.RegisterFactory(func() *testInstance {
 		return &testInstance{strconv.Itoa(rand.Int())}
 	},
-		camogo.SingletonLifetime)
+		SingletonLifetime)
 	assert.NoError(t, err)
 
 	c := cb.Build()
@@ -315,13 +314,13 @@ func TestResolveSingletonResolvesSameInstance(t *testing.T) {
 func TestResolveTransientResolvesNewInstance(t *testing.T) {
 
 	// Arrange
-	cb := camogo.NewBuilder()
+	cb := NewBuilder()
 	counter := 0
 	err := cb.RegisterFactory(func() *testInstance {
 		counter++
 		return &testInstance{strconv.Itoa(counter)}
 	},
-		camogo.TransientLifetime)
+		TransientLifetime)
 	assert.NoError(t, err)
 
 	c := cb.Build()
@@ -347,11 +346,11 @@ func TestResolveScopedResolvedSameInstancePerScope(t *testing.T) {
 
 	// Arrange
 	var err error
-	cb := camogo.NewBuilder()
+	cb := NewBuilder()
 	err = cb.RegisterFactory(func() *testInstance {
 		return &testInstance{strconv.Itoa(rand.Int())}
 	},
-		camogo.ScopedLifetime)
+		ScopedLifetime)
 	assert.NoError(t, err)
 
 	c0 := cb.Build()
@@ -363,7 +362,7 @@ func TestResolveScopedResolvedSameInstancePerScope(t *testing.T) {
 	var firstValue1 string
 	var firstValue2 string
 	for i := 0; i < 10; i++ {
-		fn := func(ctr camogo.Container) (string, error) {
+		fn := func(ctr Container) (string, error) {
 			res, err := ctr.ResolveWithResult(func(res *testInstance) string {
 				return res.GetValue()
 			})
@@ -405,11 +404,11 @@ func TestResolveSingletonResolvesSameInstanceFromParent(t *testing.T) {
 
 	// Arrange
 	var err error
-	cb := camogo.NewBuilder()
+	cb := NewBuilder()
 	err = cb.RegisterFactory(func() *testInstance {
 		return &testInstance{strconv.Itoa(rand.Int())}
 	},
-		camogo.SingletonLifetime)
+		SingletonLifetime)
 	assert.NoError(t, err)
 
 	cr := cb.Build()
@@ -444,13 +443,13 @@ func TestResolveTransientResolvesNewInstanceFromParent(t *testing.T) {
 	const nestLevel int = 10
 
 	// Arrange
-	cb := camogo.NewBuilder()
+	cb := NewBuilder()
 	counter := 0
 	err := cb.RegisterFactory(func() *testInstance {
 		counter++
 		return &testInstance{strconv.Itoa(counter)}
 	},
-		camogo.TransientLifetime)
+		TransientLifetime)
 	assert.NoError(t, err)
 
 	cr := cb.Build()
@@ -481,11 +480,11 @@ func TestResolveMatchingSingletonResolvesSameInstance(t *testing.T) {
 
 	// Arrange
 	var err error
-	cb := camogo.NewBuilder()
+	cb := NewBuilder()
 	err = cb.RegisterFactory(func() *testInstance {
 		return &testInstance{strconv.Itoa(rand.Int())}
 	},
-		camogo.SingletonLifetime)
+		SingletonLifetime)
 	assert.NoError(t, err)
 
 	c := cb.Build()
@@ -516,13 +515,13 @@ func TestResolveMatchingSingletonResolvesSameInstance(t *testing.T) {
 func TestResolveMatchingTransientResolvesNewInstance(t *testing.T) {
 
 	// Arrange
-	cb := camogo.NewBuilder()
+	cb := NewBuilder()
 	counter := 0
 	err := cb.RegisterFactory(func() *testInstance {
 		counter++
 		return &testInstance{strconv.Itoa(counter)}
 	},
-		camogo.TransientLifetime)
+		TransientLifetime)
 	assert.NoError(t, err)
 
 	c := cb.Build()
@@ -551,11 +550,11 @@ func TestResolveMatchingSingletonResolvesSameInstanceFromParent(t *testing.T) {
 
 	// Arrange
 	var err error
-	cb := camogo.NewBuilder()
+	cb := NewBuilder()
 	err = cb.RegisterFactory(func() *testInstance {
 		return &testInstance{strconv.Itoa(rand.Int())}
 	},
-		camogo.SingletonLifetime)
+		SingletonLifetime)
 	assert.NoError(t, err)
 
 	cr := cb.Build()
@@ -592,13 +591,13 @@ func TestResolveMatchingTransientResolvesNewInstanceFromParent(t *testing.T) {
 	const nestLevel int = 10
 
 	// Arrange
-	cb := camogo.NewBuilder()
+	cb := NewBuilder()
 	counter := 0
 	err := cb.RegisterFactory(func() *testInstance {
 		counter++
 		return &testInstance{strconv.Itoa(counter)}
 	},
-		camogo.TransientLifetime)
+		TransientLifetime)
 	assert.NoError(t, err)
 
 	cr := cb.Build()
@@ -629,10 +628,10 @@ func TestResolveMatchingTransientResolvesNewInstanceFromParent(t *testing.T) {
 func TestResolveTypeCanReturnContainer(t *testing.T) {
 
 	// Arrange
-	cb := camogo.NewBuilder()
+	cb := NewBuilder()
 	c := cb.Build()
 
-	err := c.Resolve(func (ctr camogo.Container) error {
+	err := c.Resolve(func (ctr Container) error {
 		assert.NotNil(t, ctr)
 		assert.Same(t, c, ctr)
 		return nil
@@ -641,10 +640,41 @@ func TestResolveTypeCanReturnContainer(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestResolveFromChildDoesNotModifyParent(t *testing.T) {
+
+	// Arrange
+	var err error
+	c0 := NewBuilder().Build()
+
+	expectedValue := t.Name()
+	c1, err := c0.NewChildWith(func (cb ContainerBuilder) error {
+		return cb.RegisterInstance(&testInstance{expectedValue})
+	})
+
+	assert.NoError(t, err)
+
+	resolveFunc := func (instance *testInstance) string {
+		return instance.GetValue()
+	}
+
+	// Act/Assert
+	res, err := c0.ResolveWithResult(resolveFunc)
+	assert.Nil(t, res)
+	assert.Error(t, err)
+
+	// Act/Assert
+	res, err = c1.ResolveWithResult(resolveFunc)
+	assert.NotNil(t, res)
+	assert.NoError(t, err)
+
+	resString := res.(string)
+	assert.Equal(t, expectedValue, res.(string), resString)
+}
+
 func BenchmarkResolve(b *testing.B) {
 	instance := &testInstance{b.Name()}
 
-	cb := camogo.NewBuilder()
+	cb := NewBuilder()
 	err := cb.RegisterInstance(instance)
 	assert.NoError(b, err)
 
@@ -658,7 +688,7 @@ func BenchmarkResolve(b *testing.B) {
 func BenchmarkResolveWithResult(b *testing.B) {
 	instance := &testInstance{b.Name()}
 
-	cb := camogo.NewBuilder()
+	cb := NewBuilder()
 	err := cb.RegisterInstance(instance)
 	assert.NoError(b, err)
 

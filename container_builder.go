@@ -19,12 +19,16 @@ type ContainerBuilder interface {
 	// RegisterModule registers the given Module with the Container
 	RegisterModule(Module) error
 
+	withParent(Container)
+	withServices([]service)
+
 	// Build creates a new Container instance
 	Build() Container
 }
 
 type containerBuilder struct {
 	services []service
+	parentContainer Container
 }
 
 // NewBuilder creates a new ContainerBuilder
@@ -84,9 +88,29 @@ func (cb *containerBuilder) RegisterModule(module Module) error {
 	return module.Register(cb)
 }
 
+func (cb *containerBuilder) withParent(parentContainer Container) {
+	cb.parentContainer = parentContainer
+}
+
+func (cb *containerBuilder) withServices(svcs []service) {
+	for _, svc := range svcs {
+		switch v := svc.(type) {
+		case *serviceFactory:
+
+			// Kinda hacky
+			if v.lifetime == ScopedLifetime {
+				sf := v.copy()
+				sf.lifetime = SingletonLifetime
+				sf.instance = nil
+				cb.services = append(cb.services, sf)
+			}
+		}
+	}
+}
+
 func (cb *containerBuilder) Build() Container {
 	return &defaultContainer{
-		nil,
+		cb.parentContainer,
 		cb.services,
 		nil,
 	}

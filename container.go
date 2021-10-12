@@ -25,6 +25,11 @@ type Container interface {
 	//	Services registered with a ScopedLifetime will be treated as a SingletonLifetime per child Container.
 	NewChild() Container
 
+	// NewChildWith will create a new child Container instance from the current Container instance.
+	//	Services registered with a ScopedLifetime will be treated as a SingletonLifetime per child Container.
+	//	The func can be used to register new services that will only be available in the child container.
+	NewChildWith(func (ContainerBuilder) error) (Container, error)
+
 	// ResolveType will resolve the service with the given reflect.Type
 	ResolveType(p reflect.Type) (interface{}, error)
 
@@ -175,26 +180,23 @@ func (c *defaultContainer) ResolveMatchingTypes(predicate ServicePredicate) ([]i
 }
 
 func (c *defaultContainer) NewChild() Container {
-	var svcs []service
+	builder := NewBuilder()
+	builder.withParent(c)
+	builder.withServices(c.services)
+	child := builder.Build()
+	return child
+}
 
-	for _, svc := range c.services {
-		switch v := svc.(type) {
-		case *serviceFactory:
-
-			// Kinda hacky
-			if v.lifetime == ScopedLifetime {
-				sf := v.copy()
-				sf.lifetime = SingletonLifetime
-				sf.instance = nil
-				svcs = append(svcs, sf)
-			}
-		}
+func (c *defaultContainer) NewChildWith(builderFunc func (ContainerBuilder) error) (Container, error) {
+	builder := NewBuilder()
+	builder.withParent(c)
+	builder.withServices(c.services)
+	err := builderFunc(builder)
+	if err != nil {
+		return nil, err
 	}
-
-	return &defaultContainer{
-		parent:   c,
-		services: svcs,
-	}
+	child := builder.Build()
+	return child, nil
 }
 
 func validateFuncResults(fnValue reflect.Value) error {

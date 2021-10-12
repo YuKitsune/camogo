@@ -1,9 +1,8 @@
-package camogo_test
+package camogo
 
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"github.com/yukitsune/camogo"
 	"reflect"
 	"testing"
 )
@@ -28,11 +27,11 @@ type testModule struct {
 	instancesToRegister []interface{}
 	factoriesToRegister []struct {
 		factory  interface{}
-		lifetime camogo.Lifetime
+		lifetime Lifetime
 	}
 }
 
-func (m *testModule) Register(cb camogo.ContainerBuilder) error {
+func (m *testModule) Register(cb ContainerBuilder) error {
 	for _, i := range m.instancesToRegister {
 		err := cb.RegisterInstance(i)
 		if err != nil {
@@ -58,7 +57,7 @@ func TestBuilderDoesNotAllowDuplicates(t *testing.T) {
 			// Arrange
 			instance1 := &testInstance{fmt.Sprintf("%s-1", t.Name())}
 			instance2 := &testInstance{fmt.Sprintf("%s-2", t.Name())}
-			cb := camogo.NewBuilder()
+			cb := NewBuilder()
 
 			// Act
 			err1 := cb.RegisterInstance(instance1)
@@ -75,11 +74,11 @@ func TestBuilderDoesNotAllowDuplicates(t *testing.T) {
 			// Arrange
 			instance1 := &testInstance{fmt.Sprintf("%s-1", t.Name())}
 			instance2 := &testInstance{fmt.Sprintf("%s-2", t.Name())}
-			cb := camogo.NewBuilder()
+			cb := NewBuilder()
 
 			// Act
-			err1 := cb.RegisterFactory(func() *testInstance { return instance1 }, camogo.SingletonLifetime)
-			err2 := cb.RegisterFactory(func() (*testInstance, error) { return instance2, nil }, camogo.TransientLifetime)
+			err1 := cb.RegisterFactory(func() *testInstance { return instance1 }, SingletonLifetime)
+			err2 := cb.RegisterFactory(func() (*testInstance, error) { return instance2, nil }, TransientLifetime)
 
 			// Assert
 			assert.NoError(t, err1)
@@ -92,10 +91,10 @@ func TestFactoryIsValidated(t *testing.T) {
 	testFactoryIsValidated := func(t *testing.T, fn interface{}, shouldPass bool) {
 
 		// Arrange
-		cb := camogo.NewBuilder()
+		cb := NewBuilder()
 
 		// Act
-		err := cb.RegisterFactory(fn, camogo.SingletonLifetime)
+		err := cb.RegisterFactory(fn, SingletonLifetime)
 
 		// Assert
 		if shouldPass {
@@ -130,9 +129,9 @@ func TestFactoryIsValidated(t *testing.T) {
 
 func BenchmarkRegisterFactory(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		cb := camogo.NewBuilder()
+		cb := NewBuilder()
 		_ = cb.RegisterFactory(func() (*testInstance, error) {
 			return &testInstance{b.Name()}, nil
-		}, camogo.TransientLifetime)
+		}, TransientLifetime)
 	}
 }
