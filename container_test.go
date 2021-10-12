@@ -3,128 +3,11 @@ package camogo
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"math/rand"
+	"reflect"
 	"strconv"
 	"testing"
 )
-
-type testInterface interface {
-	GetValue() string
-}
-
-type testInstance struct {
-	stringValue string
-}
-
-func (v *testInstance) GetValue() string {
-	return v.stringValue
-}
-
-type testModule struct {
-	instancesToRegister []interface{}
-	factoriesToRegister []struct {
-		factory  interface{}
-		lifetime Lifetime
-	}
-}
-
-func (m *testModule) Register(r *Registrar) error {
-	for _, i := range m.instancesToRegister {
-		err := r.RegisterInstance(i)
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, f := range m.factoriesToRegister {
-		err := r.RegisterFactory(f.factory, f.lifetime)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func TestRegistrarDoesNotAllowDuplicates(t *testing.T) {
-	t.Run(
-		"Using Instance",
-		func(t *testing.T) {
-
-			// Arrange
-			instance1 := &testInstance{fmt.Sprintf("%s-1", t.Name())}
-			instance2 := &testInstance{fmt.Sprintf("%s-2", t.Name())}
-			r := &Registrar{}
-
-			// Act
-			err1 := r.RegisterInstance(instance1)
-			err2 := r.RegisterInstance(instance2)
-
-			// Assert
-			assert.NoError(t, err1)
-			assert.Error(t, err2)
-		})
-	t.Run(
-		"Using Factory",
-		func(t *testing.T) {
-
-			// Arrange
-			instance1 := &testInstance{fmt.Sprintf("%s-1", t.Name())}
-			instance2 := &testInstance{fmt.Sprintf("%s-2", t.Name())}
-			r := &Registrar{}
-
-			// Act
-			err1 := r.RegisterFactory(func() *testInstance { return instance1 }, SingletonLifetime)
-			err2 := r.RegisterFactory(func() *testInstance { return instance2 }, SingletonLifetime)
-
-			// Assert
-			assert.NoError(t, err1)
-			assert.Error(t, err2)
-		})
-}
-
-func TestResolveType(t *testing.T) {
-	t.Run(
-		"From Module",
-		func(t *testing.T) {
-
-			// Arrange
-			var err error
-			instance := &testInstance{t.Name()}
-			module := &testModule{instancesToRegister: []interface{}{instance}}
-			c := New()
-			err = c.RegisterModule(module)
-			assert.NoError(t, err)
-
-			// Act / Assert
-			err = c.Resolve(func(res *testInstance) {
-				assert.NotNil(t, res)
-				assert.Equal(t, instance.stringValue, res.stringValue)
-			})
-
-			assert.NoError(t, err)
-		})
-	t.Run(
-		"From Func",
-		func(t *testing.T) {
-
-			// Arrange
-			var err error
-			instance := &testInstance{t.Name()}
-			c := New()
-			err = c.Register(func(r *Registrar) error {
-				return r.RegisterInstance(instance)
-			})
-			assert.NoError(t, err)
-
-			// Act / Assert
-			err = c.Resolve(func(res *testInstance) {
-				assert.NotNil(t, res)
-				assert.Equal(t, instance.stringValue, res.stringValue)
-			})
-
-			assert.NoError(t, err)
-		})
-}
 
 func TestResolve(t *testing.T) {
 	t.Run(
@@ -135,9 +18,12 @@ func TestResolve(t *testing.T) {
 			var err error
 			instance := &testInstance{t.Name()}
 			module := &testModule{instancesToRegister: []interface{}{instance}}
-			c := New()
-			err = c.RegisterModule(module)
+
+			cb := NewBuilder()
+			err = cb.RegisterModule(module)
 			assert.NoError(t, err)
+
+			c := cb.Build()
 
 			// Act
 			err = c.Resolve(func(receivedInstance *testInstance) {
@@ -150,17 +36,18 @@ func TestResolve(t *testing.T) {
 			assert.NoError(t, err)
 		})
 	t.Run(
-		"From Func",
+		"From Instance",
 		func(t *testing.T) {
 
 			// Arrange
 			var err error
 			instance := &testInstance{t.Name()}
-			c := New()
-			err = c.Register(func(r *Registrar) error {
-				return r.RegisterInstance(instance)
-			})
+
+			cb := NewBuilder()
+			err = cb.RegisterInstance(instance)
 			assert.NoError(t, err)
+
+			c := cb.Build()
 
 			// Act
 			err = c.Resolve(func(receivedInstance *testInstance) {
@@ -172,29 +59,58 @@ func TestResolve(t *testing.T) {
 
 			assert.NoError(t, err)
 		})
-}
+	t.Run(
+		"From Factory",
+		func(t *testing.T) {
 
-func TestResolveFromInterface(t *testing.T) {
+			// Arrange
+			var err error
+			instance := &testInstance{t.Name()}
 
-	// Arrange
-	instance := &testInstance{t.Name()}
-	c := New()
-	err := c.Register(func(r *Registrar) error {
-		return r.RegisterFactory(func() testInterface {
-			return instance
-		},
-			SingletonLifetime)
-	})
-	assert.NoError(t, err)
+			cb := NewBuilder()
+			err = cb.RegisterFactory(func() *testInstance {
+				return instance
+			}, TransientLifetime)
+			assert.NoError(t, err)
 
-	// Act
-	err = c.Resolve(func(res testInterface) {
+			c := cb.Build()
 
-		// Assert
-		assert.Equal(t, instance.GetValue(), res.GetValue())
-	})
+			// Act
+			err = c.Resolve(func(receivedInstance *testInstance) {
 
-	assert.NoError(t, err)
+				// Assert
+				assert.NotNil(t, receivedInstance)
+				assert.Equal(t, instance.stringValue, receivedInstance.stringValue)
+			})
+
+			assert.NoError(t, err)
+		})
+	t.Run(
+		"From Factory with error",
+		func(t *testing.T) {
+
+			// Arrange
+			var err error
+			instance := &testInstance{t.Name()}
+
+			cb := NewBuilder()
+			err = cb.RegisterFactory(func() (*testInstance, error) {
+				return instance, nil
+			}, TransientLifetime)
+			assert.NoError(t, err)
+
+			c := cb.Build()
+
+			// Act
+			err = c.Resolve(func(receivedInstance *testInstance) {
+
+				// Assert
+				assert.NotNil(t, receivedInstance)
+				assert.Equal(t, instance.stringValue, receivedInstance.stringValue)
+			})
+
+			assert.NoError(t, err)
+		})
 }
 
 func TestResolveReturnsError(t *testing.T) {
@@ -205,10 +121,12 @@ func TestResolveReturnsError(t *testing.T) {
 			// Arrange
 			var err error
 			instance := &testInstance{t.Name()}
-			module := &testModule{instancesToRegister: []interface{}{instance}}
-			c := New()
-			err = c.RegisterModule(module)
+
+			cb := NewBuilder()
+			err = cb.RegisterInstance(instance)
 			assert.NoError(t, err)
+
+			c := cb.Build()
 
 			// Act
 			errorToReturn := fmt.Errorf(t.Name())
@@ -224,7 +142,8 @@ func TestResolveReturnsError(t *testing.T) {
 		func(t *testing.T) {
 
 			// Arrange
-			c := New()
+			cb := NewBuilder()
+			c := cb.Build()
 
 			// Act
 			foundError := c.Resolve(func(receivedInstance *testInstance) error {
@@ -243,10 +162,12 @@ func TestResolveReturnsResult(t *testing.T) {
 			// Arrange
 			var err error
 			instance := &testInstance{t.Name()}
-			module := &testModule{instancesToRegister: []interface{}{instance}}
-			c := New()
-			err = c.RegisterModule(module)
+
+			cb := NewBuilder()
+			err = cb.RegisterInstance(instance)
 			assert.NoError(t, err)
+
+			c := cb.Build()
 
 			// Act
 			errorToReturn := fmt.Errorf(t.Name())
@@ -265,10 +186,12 @@ func TestResolveReturnsResult(t *testing.T) {
 			// Arrange
 			var err error
 			instance := &testInstance{t.Name()}
-			module := &testModule{instancesToRegister: []interface{}{instance}}
-			c := New()
-			err = c.RegisterModule(module)
+
+			cb := NewBuilder()
+			err = cb.RegisterInstance(instance)
 			assert.NoError(t, err)
+
+			c := cb.Build()
 
 			// Act
 			testName, foundError := c.ResolveWithResult(func(receivedInstance *testInstance) interface{} {
@@ -280,139 +203,500 @@ func TestResolveReturnsResult(t *testing.T) {
 		})
 }
 
-func TestFactoryIsValidated(t *testing.T) {
-
-	// Valid
-	t.Run("Returns one thing", func(t *testing.T) { testFactoryIsValidated(t, func() *testInstance { return nil }, true) })
-	t.Run("Returns something or error", func(t *testing.T) { testFactoryIsValidated(t, func() (*testInstance, error) { return nil, nil }, true) })
-
-	// Invalid
-	t.Run("Returns nothing", func(t *testing.T) { testFactoryIsValidated(t, func() {}, false) })
-	t.Run("Returns error", func(t *testing.T) { testFactoryIsValidated(t, func() error { return nil }, false) })
-	t.Run("Returns many things", func(t *testing.T) {
-		testFactoryIsValidated(t, func() (*testInstance, *testInstance) { return nil, nil }, false)
-	})
-}
-
-func testFactoryIsValidated(t *testing.T, fn interface{}, shouldPass bool) {
-
-	// Arrange
-	registrar := &Registrar{}
-
-	// Act
-	err := registrar.RegisterFactory(fn, SingletonLifetime)
-
-	// Assert
-	if shouldPass {
-		assert.NoError(t, err)
-	} else {
-		assert.NotNil(t, err)
-	}
-}
-
 func TestResolveFuncIsValidated(t *testing.T) {
 
+	testResolveFuncIsValidated := func(t *testing.T, fn interface{}, shouldPass bool) {
+
+		// Arrange
+		cb := NewBuilder()
+		c := cb.Build()
+
+		// Act
+		err := c.Resolve(fn)
+
+		// Assert
+		if shouldPass {
+			assert.NoError(t, err)
+		} else {
+			assert.NotNil(t, err)
+		}
+	}
+
 	// valid
-	t.Run("Returns nothing", func(t *testing.T) { testResolveFuncIsValidated(t, func() {}, true) })
-	t.Run("Returns error", func(t *testing.T) { testResolveFuncIsValidated(t, func() error { return nil }, true) })
+	t.Run("Returns nothing", func(t *testing.T) {
+		testResolveFuncIsValidated(t, func() {}, true)
+	})
+	t.Run("Returns error", func(t *testing.T) {
+		testResolveFuncIsValidated(t, func() error { return nil }, true)
+	})
 
 	// Invalid
-	t.Run("Returns something", func(t *testing.T) { testResolveFuncIsValidated(t, func() *testInstance { return nil }, false) })
+	t.Run("Returns something", func(t *testing.T) {
+		testResolveFuncIsValidated(t, func() *testInstance { return nil }, false)
+	})
 	t.Run("Returns many things", func(t *testing.T) {
 		testResolveFuncIsValidated(t, func() (*testInstance, *testInstance) { return nil, nil }, false)
 	})
-}
-
-func testResolveFuncIsValidated(t *testing.T, fn interface{}, shouldPass bool) {
-
-	// Arrange
-	c := New()
-
-	// Act
-	err := c.Resolve(fn)
-
-	// Assert
-	if shouldPass {
-		assert.NoError(t, err)
-	} else {
-		assert.NotNil(t, err)
-	}
 }
 
 func TestResolveWithResultFuncIsValidated(t *testing.T) {
 
+	testResolveWithResultFuncIsValidated := func(t *testing.T, fn interface{}, shouldPass bool) {
+
+		// Arrange
+		cb := NewBuilder()
+		c := cb.Build()
+
+		// Act
+		_, err := c.ResolveWithResult(fn)
+
+		// Assert
+		if shouldPass {
+			assert.NoError(t, err)
+		} else {
+			assert.NotNil(t, err)
+		}
+	}
+
 	// valid
-	t.Run("Returns something", func(t *testing.T) { testResolveWithResultFuncIsValidated(t, func() *testInstance { return nil }, true) })
-	t.Run("Returns something with error", func(t *testing.T) { testResolveWithResultFuncIsValidated(t, func() (*testInstance, error) { return nil, nil }, true) })
+	t.Run("Returns something", func(t *testing.T) {
+		testResolveWithResultFuncIsValidated(t, func() *testInstance { return nil }, true)
+	})
+	t.Run("Returns something with error", func(t *testing.T) {
+		testResolveWithResultFuncIsValidated(t, func() (*testInstance, error) { return nil, nil }, true)
+	})
 
 	// Invalid
-	t.Run("Returns nothing", func(t *testing.T) { testResolveWithResultFuncIsValidated(t, func() { }, false) })
+	t.Run("Returns nothing", func(t *testing.T) {
+		testResolveWithResultFuncIsValidated(t, func() {}, false)
+	})
 	t.Run("Returns only error", func(t *testing.T) {
 		testResolveWithResultFuncIsValidated(t, func() error { return nil }, false)
 	})
 	t.Run("Returns many things", func(t *testing.T) {
-		testResolveFuncIsValidated(t, func() (*testInstance, *testInstance) { return nil, nil }, false)
+		testResolveWithResultFuncIsValidated(t, func() (*testInstance, *testInstance) { return nil, nil }, false)
 	})
-}
-
-func testResolveWithResultFuncIsValidated(t *testing.T, fn interface{}, shouldPass bool) {
-
-	// Arrange
-	c := New()
-
-	// Act
-	_, err := c.ResolveWithResult(fn)
-
-	// Assert
-	if shouldPass {
-		assert.NoError(t, err)
-	} else {
-		assert.NotNil(t, err)
-	}
 }
 
 func TestResolveSingletonResolvesSameInstance(t *testing.T) {
 
 	// Arrange
-	c := New()
-	err := c.Register(func(r *Registrar) error {
-		return r.RegisterFactory(func() *testInstance {
-			return &testInstance{t.Name()}
-		},
-			SingletonLifetime)
-	})
+	var err error
+	cb := NewBuilder()
+	err = cb.RegisterFactory(func() *testInstance {
+		return &testInstance{strconv.Itoa(rand.Int())}
+	},
+		SingletonLifetime)
 	assert.NoError(t, err)
 
+	c := cb.Build()
+
 	// Act / Assert
+	var firstValue string
 	for i := 0; i < 10; i++ {
-		err = c.Resolve(func(res *testInstance) {
-			assert.Equal(t, t.Name(), res.GetValue())
+		res, err := c.ResolveWithResult(func(res *testInstance) string {
+			return res.GetValue()
 		})
+
+		assert.NotNil(t, res)
 		assert.NoError(t, err)
+
+		resString := res.(string)
+		if i == 0 {
+			firstValue = resString
+			continue
+		}
+
+		assert.Equal(t, firstValue, resString)
 	}
 }
 
 func TestResolveTransientResolvesNewInstance(t *testing.T) {
 
 	// Arrange
-	c := New()
+	cb := NewBuilder()
 	counter := 0
-	err := c.Register(func(r *Registrar) error {
-		return r.RegisterFactory(func() *testInstance {
-			counter++
-			return &testInstance{strconv.Itoa(counter)}
-		},
-			TransientLifetime)
-	})
+	err := cb.RegisterFactory(func() *testInstance {
+		counter++
+		return &testInstance{strconv.Itoa(counter)}
+	},
+		TransientLifetime)
 	assert.NoError(t, err)
+
+	c := cb.Build()
 
 	// Act / Assert
 	var lastValue string
 	for i := 0; i < 10; i++ {
-		err = c.Resolve(func(res *testInstance) {
-			assert.NotEqual(t, lastValue, res.GetValue())
-			lastValue = res.GetValue()
+		res, err := c.ResolveWithResult(func(res *testInstance) string {
+			return res.GetValue()
 		})
+
+		assert.NotNil(t, res)
 		assert.NoError(t, err)
+
+		resString := res.(string)
+		assert.NotEqual(t, lastValue, resString)
+
+		lastValue = resString
+	}
+}
+
+func TestResolveScopedResolvedSameInstancePerScope(t *testing.T) {
+
+	// Arrange
+	var err error
+	cb := NewBuilder()
+	err = cb.RegisterFactory(func() *testInstance {
+		return &testInstance{strconv.Itoa(rand.Int())}
+	},
+		ScopedLifetime)
+	assert.NoError(t, err)
+
+	c0 := cb.Build()
+	c1 := c0.NewChild()
+	c2 := c0.NewChild()
+
+	// Act / Assert
+	var firstValue0 string
+	var firstValue1 string
+	var firstValue2 string
+	for i := 0; i < 10; i++ {
+		fn := func(ctr Container) (string, error) {
+			res, err := ctr.ResolveWithResult(func(res *testInstance) string {
+				return res.GetValue()
+			})
+
+			resString := res.(string)
+			return resString, err
+		}
+
+		res0, err := fn(c0)
+		assert.NoError(t, err)
+		assert.NotNil(t, res0)
+
+		res1, err := fn(c1)
+		assert.NoError(t, err)
+		assert.NotNil(t, res1)
+
+		res2, err := fn(c2)
+		assert.NoError(t, err)
+		assert.NotNil(t, res2)
+
+		assert.NotEqual(t, res0, res1, res2)
+
+		if i == 0 {
+			firstValue0 = res0
+			firstValue1 = res1
+			firstValue2 = res2
+			continue
+		}
+
+		assert.Equal(t, firstValue0, res0)
+		assert.Equal(t, firstValue1, res1)
+		assert.Equal(t, firstValue2, res2)
+	}
+}
+
+func TestResolveSingletonResolvesSameInstanceFromParent(t *testing.T) {
+
+	const nestLevel int = 10
+
+	// Arrange
+	var err error
+	cb := NewBuilder()
+	err = cb.RegisterFactory(func() *testInstance {
+		return &testInstance{strconv.Itoa(rand.Int())}
+	},
+		SingletonLifetime)
+	assert.NoError(t, err)
+
+	cr := cb.Build()
+	c := cr.NewChild()
+
+	// Act / Assert
+	var firstValue string
+	for n := 0; n < nestLevel; n++ {
+		c = c.NewChild()
+
+		for i := 0; i < 10; i++ {
+			res, err := c.ResolveWithResult(func(res *testInstance) string {
+				return res.GetValue()
+			})
+
+			assert.NotNil(t, res)
+			assert.NoError(t, err)
+
+			resString := res.(string)
+			if n == 0 && i == 0 {
+				firstValue = resString
+				continue
+			}
+
+			assert.Equal(t, firstValue, resString)
+		}
+	}
+}
+
+func TestResolveTransientResolvesNewInstanceFromParent(t *testing.T) {
+
+	const nestLevel int = 10
+
+	// Arrange
+	cb := NewBuilder()
+	counter := 0
+	err := cb.RegisterFactory(func() *testInstance {
+		counter++
+		return &testInstance{strconv.Itoa(counter)}
+	},
+		TransientLifetime)
+	assert.NoError(t, err)
+
+	cr := cb.Build()
+	c := cr.NewChild()
+
+	// Act / Assert
+	for n := 0; n < nestLevel; n++ {
+		c = c.NewChild()
+
+		var lastValue string
+		for i := 0; i < 10; i++ {
+			res, err := c.ResolveWithResult(func(res *testInstance) string {
+				return res.GetValue()
+			})
+
+			assert.NotNil(t, res)
+			assert.NoError(t, err)
+
+			resString := res.(string)
+			assert.NotEqual(t, lastValue, resString)
+
+			lastValue = resString
+		}
+	}
+}
+
+func TestResolveMatchingSingletonResolvesSameInstance(t *testing.T) {
+
+	// Arrange
+	var err error
+	cb := NewBuilder()
+	err = cb.RegisterFactory(func() *testInstance {
+		return &testInstance{strconv.Itoa(rand.Int())}
+	},
+		SingletonLifetime)
+	assert.NoError(t, err)
+
+	c := cb.Build()
+
+	// Act / Assert
+	var firstValue string
+	for i := 0; i < 10; i++ {
+		svc, err := c.ResolveMatchingType(func(typ reflect.Type) bool {
+			return typ.Name() == testInstanceName()
+		})
+
+		assert.NotNil(t, svc)
+		assert.NoError(t, err)
+
+		svcInstance := svc.(*testInstance)
+		resString := svcInstance.GetValue()
+
+		if i == 0 {
+			firstValue = resString
+			continue
+		}
+
+		assert.Equal(t, firstValue, resString)
+	}
+
+}
+
+func TestResolveMatchingTransientResolvesNewInstance(t *testing.T) {
+
+	// Arrange
+	cb := NewBuilder()
+	counter := 0
+	err := cb.RegisterFactory(func() *testInstance {
+		counter++
+		return &testInstance{strconv.Itoa(counter)}
+	},
+		TransientLifetime)
+	assert.NoError(t, err)
+
+	c := cb.Build()
+
+	// Act / Assert
+	var lastValue string
+	for i := 0; i < 10; i++ {
+		svc, err := c.ResolveMatchingType(func(typ reflect.Type) bool {
+			return typ.Name() == testInstanceName()
+		})
+
+		assert.NotNil(t, svc)
+		assert.NoError(t, err)
+
+		svcInstance := svc.(*testInstance)
+		resString := svcInstance.GetValue()
+		assert.NotEqual(t, lastValue, resString)
+
+		lastValue = resString
+	}
+}
+
+func TestResolveMatchingSingletonResolvesSameInstanceFromParent(t *testing.T) {
+
+	const nestLevel int = 10
+
+	// Arrange
+	var err error
+	cb := NewBuilder()
+	err = cb.RegisterFactory(func() *testInstance {
+		return &testInstance{strconv.Itoa(rand.Int())}
+	},
+		SingletonLifetime)
+	assert.NoError(t, err)
+
+	cr := cb.Build()
+	c := cr.NewChild()
+
+	// Act / Assert
+	var firstValue string
+	for n := 0; n < nestLevel; n++ {
+		c = c.NewChild()
+
+		for i := 0; i < 10; i++ {
+			svc, err := c.ResolveMatchingType(func(typ reflect.Type) bool {
+				return typ.Name() == testInstanceName()
+			})
+
+			assert.NotNil(t, svc)
+			assert.NoError(t, err)
+
+			svcInstance := svc.(*testInstance)
+			resString := svcInstance.GetValue()
+			if n == 0 && i == 0 {
+				firstValue = resString
+				continue
+			}
+
+			assert.Equal(t, firstValue, resString)
+		}
+	}
+
+}
+
+func TestResolveMatchingTransientResolvesNewInstanceFromParent(t *testing.T) {
+
+	const nestLevel int = 10
+
+	// Arrange
+	cb := NewBuilder()
+	counter := 0
+	err := cb.RegisterFactory(func() *testInstance {
+		counter++
+		return &testInstance{strconv.Itoa(counter)}
+	},
+		TransientLifetime)
+	assert.NoError(t, err)
+
+	cr := cb.Build()
+	c := cr.NewChild()
+
+	// Act / Assert
+	for n := 0; n < nestLevel; n++ {
+		c = c.NewChild()
+
+		var lastValue string
+		for i := 0; i < 10; i++ {
+			svc, err := c.ResolveMatchingType(func(typ reflect.Type) bool {
+				return typ.Name() == testInstanceName()
+			})
+
+			assert.NotNil(t, svc)
+			assert.NoError(t, err)
+
+			svcInstance := svc.(*testInstance)
+			resString := svcInstance.GetValue()
+			assert.NotEqual(t, lastValue, resString)
+
+			lastValue = resString
+		}
+	}
+}
+
+func TestResolveTypeCanReturnContainer(t *testing.T) {
+
+	// Arrange
+	cb := NewBuilder()
+	c := cb.Build()
+
+	err := c.Resolve(func (ctr Container) error {
+		assert.NotNil(t, ctr)
+		assert.Same(t, c, ctr)
+		return nil
+	})
+
+	assert.NoError(t, err)
+}
+
+func TestResolveFromChildDoesNotModifyParent(t *testing.T) {
+
+	// Arrange
+	var err error
+	c0 := NewBuilder().Build()
+
+	expectedValue := t.Name()
+	c1, err := c0.NewChildWith(func (cb ContainerBuilder) error {
+		return cb.RegisterInstance(&testInstance{expectedValue})
+	})
+
+	assert.NoError(t, err)
+
+	resolveFunc := func (instance *testInstance) string {
+		return instance.GetValue()
+	}
+
+	// Act/Assert
+	res, err := c0.ResolveWithResult(resolveFunc)
+	assert.Nil(t, res)
+	assert.Error(t, err)
+
+	// Act/Assert
+	res, err = c1.ResolveWithResult(resolveFunc)
+	assert.NotNil(t, res)
+	assert.NoError(t, err)
+
+	resString := res.(string)
+	assert.Equal(t, expectedValue, res.(string), resString)
+}
+
+func BenchmarkResolve(b *testing.B) {
+	instance := &testInstance{b.Name()}
+
+	cb := NewBuilder()
+	err := cb.RegisterInstance(instance)
+	assert.NoError(b, err)
+
+	c := cb.Build()
+	for i := 0; i < b.N; i++ {
+		err = c.Resolve(func(instance *testInstance) {})
+		assert.NoError(b, err)
+	}
+}
+
+func BenchmarkResolveWithResult(b *testing.B) {
+	instance := &testInstance{b.Name()}
+
+	cb := NewBuilder()
+	err := cb.RegisterInstance(instance)
+	assert.NoError(b, err)
+
+	c := cb.Build()
+	for i := 0; i < b.N; i++ {
+		_, err = c.ResolveWithResult(func(instance *testInstance) string {
+			return instance.GetValue()
+		})
+		assert.NoError(b, err)
 	}
 }

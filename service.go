@@ -5,25 +5,42 @@ import (
 	"reflect"
 )
 
-type serviceRegistration interface {
+// Lifetime defined the lifetime of a service in an IoC container
+type Lifetime int
+
+const (
+
+	// TransientLifetime specifies that a factory should be invoked every time it is requested
+	TransientLifetime Lifetime = iota
+
+	// SingletonLifetime specifies that a factory should only be invoked once, and the result should be re-used for all
+	//	subsequent requests
+	SingletonLifetime
+
+	// ScopedLifetime specifies that a factory should only be invoked once per container, and the result should be
+	//	re-used for all subsequent requests to the same container
+	ScopedLifetime
+)
+
+type service interface {
 	Type() reflect.Type
-	Resolve(Resolver) (interface{}, error)
+	Resolve(Container) (interface{}, error)
 }
 
-type instanceRegistration struct {
+type serviceInstance struct {
 	targetType reflect.Type
 	instance   interface{}
 }
 
-func (r *instanceRegistration) Type() reflect.Type {
-	return r.targetType
+func (s *serviceInstance) Type() reflect.Type {
+	return s.targetType
 }
 
-func (r *instanceRegistration) Resolve(_ Resolver) (interface{}, error) {
-	return r.instance, nil
+func (s *serviceInstance) Resolve(_ Container) (interface{}, error) {
+	return s.instance, nil
 }
 
-type factoryRegistration struct {
+type serviceFactory struct {
 	targetType  reflect.Type
 	factoryType reflect.Type
 	factory     reflect.Value
@@ -31,20 +48,22 @@ type factoryRegistration struct {
 	instance    interface{}
 }
 
-func (r *factoryRegistration) Type() reflect.Type {
-	return r.targetType
+func (s *serviceFactory) Type() reflect.Type {
+	return s.targetType
 }
 
-func (r *factoryRegistration) Resolve(c Resolver) (interface{}, error) {
+func (s *serviceFactory) Resolve(c Container) (interface{}, error) {
+
+	isSingleton := s.lifetime == SingletonLifetime || s.lifetime == ScopedLifetime
 
 	// If this service is registered as a singleton, and we've already resolved an instance before, just return that
 	// instance
-	if r.lifetime == SingletonLifetime && r.instance != nil {
-		return r.instance, nil
+	if isSingleton && s.instance != nil {
+		return s.instance, nil
 	}
 
 	// Execute the factory method
-	out, err := resolveFunc(c, r.factory)
+	out, err := resolveFunc(c, s.factory)
 	if err != nil {
 		return nil, err
 	}
@@ -56,19 +75,29 @@ func (r *factoryRegistration) Resolve(c Resolver) (interface{}, error) {
 	}
 
 	// If this service is registered as a singleton, then store this new instance for later
-	if r.lifetime == SingletonLifetime {
-		r.instance = instance
-		return r.instance, nil
+	if isSingleton {
+		s.instance = instance
+		return s.instance, nil
 	}
 
 	return instance, nil
 }
 
+func (s *serviceFactory) copy() *serviceFactory {
+	return &serviceFactory{
+		targetType:  s.targetType,
+		factoryType: s.factoryType,
+		factory:     s.factory,
+		lifetime:    s.lifetime,
+		instance:    s.instance,
+	}
+}
+
 // resolveFunc executes the given fnValue as a func and uses the given Resolver to resolve any arguments.
-func resolveFunc(r Resolver, fnValue reflect.Value) ([]reflect.Value, error) {
+func resolveFunc(c Container, fnValue reflect.Value) ([]reflect.Value, error) {
 	var in []reflect.Value
 	for i := 0; i < fnValue.Type().NumIn(); i++ {
-		arg, err := r.resolveType(fnValue.Type().In(i))
+		arg, err := c.ResolveType(fnValue.Type().In(i))
 		if err != nil {
 			return []reflect.Value{}, err
 		}
