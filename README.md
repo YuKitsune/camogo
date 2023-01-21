@@ -7,7 +7,7 @@
 <h3 align="center">
   A simple, reflection based IoC container for Go.
 
-  [![GitHub Workflow Status](https://img.shields.io/github/workflow/status/yukitsune/camogo/CI)](https://github.com/yukitsune/camogo/actions?query=workflow:CI)
+  [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/yukitsune/camogo/ci.yml)](https://github.com/YuKitsune/camogo/actions/workflows/ci.yml)
   [![Go Report Card](https://goreportcard.com/badge/github.com/yukitsune/camogo)](https://goreportcard.com/report/github.com/yukitsune/camogo)
   [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/yukitsune/camogo)](https://pkg.go.dev/mod/github.com/yukitsune/camogo)
 </h3>
